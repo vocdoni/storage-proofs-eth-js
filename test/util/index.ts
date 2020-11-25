@@ -3,10 +3,9 @@ import * as ganache from "ganache-cli"
 
 export const mnemonic = "myth like bonus scare over problem client lizard pioneer submit female collect"
 
-export const localProvider = new providers.Web3Provider(ganache.provider({
-    time: new Date(),
-    mnemonic
-}))
+export const localProvider = process.env.WEB3_ENDPOINT ?
+    new providers.WebSocketProvider(process.env.WEB3_ENDPOINT)
+    : new providers.Web3Provider(ganache.provider({ time: new Date(), mnemonic }))
 
 const wallets: Wallet[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(idx => {
     return Wallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/${idx}`).connect(localProvider)

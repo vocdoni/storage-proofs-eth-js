@@ -8,7 +8,7 @@ import { rlp } from "ethereumjs-util"
 // TODO: For browsers to work, using Buffer from NPM is required
 // import { Buffer } from "buffer/"
 
-export class StorageProover {
+export class ERC20Prover {
     provider: providers.JsonRpcProvider | providers.Web3Provider | providers.IpcProvider | providers.InfuraProvider
 
     constructor(provider: string | providers.JsonRpcProvider | providers.Web3Provider | providers.IpcProvider | providers.InfuraProvider) {
@@ -53,6 +53,11 @@ export class StorageProover {
             accountProofRLP,
             storageProofsRLP
         }
+    }
+
+    public static getHolderBalanceSlot(tokenAddress: string, balanceMappingSlot: number): string {
+        // Equivalent to keccak256(abi.encodePacked(bytes32(holder), balanceMappingPosition));
+        return utils.solidityKeccak256(["bytes32", "uint256"], [utils.hexZeroPad(tokenAddress.toLowerCase(), 32), balanceMappingSlot])
     }
 
     private encodeProof(proof): string {

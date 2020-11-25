@@ -1,4 +1,4 @@
-pragma solidity 0.6.4;
+pragma solidity 0.7.5;
 
 
 contract SimpleERC20 {
