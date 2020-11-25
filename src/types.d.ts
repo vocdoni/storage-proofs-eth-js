@@ -1,3 +1,5 @@
+// Data types
+
 export type BlockData = {
     difficulty: string,
     extraData: string,
@@ -30,14 +32,10 @@ export type StorageProof = {
     storageProof: { key: string, proof: string[], value: string }[]
 }
 
-export type RpcGetBlockResponse = {
-    jsonrpc: string,
-    id: number,
-    result: BlockData
-}
+// JSON RPC Response types
 
-export type RpcGetProofResponse = {
+export type JsonRpcResponse<T> = {
     jsonrpc: string,
     id: number,
-    result: StorageProof
+    result: T
 }

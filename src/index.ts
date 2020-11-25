@@ -1,11 +1,11 @@
 import { providers, utils } from "ethers"
-import { BlockData, RpcGetBlockResponse, RpcGetProofResponse, StorageProof } from "./types"
+import { BlockData, StorageProof, JsonRpcResponse } from "./types"
 import blockHeaderFromRpc from "@ethereumjs/block/dist/header-from-rpc"
 import { BaseTrie } from "merkle-patricia-tree"
 import { Proof } from "merkle-patricia-tree/dist/baseTrie"
 import { rlp } from "ethereumjs-util"
 
-// NOTE: For browsers to work, using Buffer from NPM is required
+// TODO: For browsers to work, using Buffer from NPM is required
 // import { Buffer } from "buffer/"
 
 export class StorageProover {
@@ -100,7 +100,7 @@ export class StorageProover {
 
     private fetchStorageProof(address: string, storageKeys: any[], blockNumber: number | "latest" = "latest"): Promise<StorageProof> {
         return this.provider.send("eth_getProof", [address, storageKeys, utils.hexValue(blockNumber)])
-            .then((response: RpcGetProofResponse) => {
+            .then((response: JsonRpcResponse<StorageProof>) => {
                 if (!response.result) throw new Error("Block not found")
                 return response.result
             })
@@ -108,7 +108,7 @@ export class StorageProover {
 
     private fetchBlock(blockNumber: number | "latest" = "latest"): Promise<BlockData> {
         return this.provider.send("eth_getBlockByNumber", [utils.hexValue(blockNumber), false])
-            .then((response: RpcGetBlockResponse) => {
+            .then((response: JsonRpcResponse<BlockData>) => {
                 if (!response.result) throw new Error("Block not found")
                 return response.result
             })
