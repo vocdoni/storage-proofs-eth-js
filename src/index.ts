@@ -1,5 +1,5 @@
 import { providers, utils } from "ethers"
-import { BlockData, StorageProof, JsonRpcResponse } from "./types"
+import { BlockData, StorageProof } from "./types"
 import blockHeaderFromRpc from "@ethereumjs/block/dist/header-from-rpc"
 import { BaseTrie } from "merkle-patricia-tree"
 import { Proof } from "merkle-patricia-tree/dist/baseTrie"
@@ -22,27 +22,12 @@ export class ERC20Prover {
     async getProof(address: string, storageKeys: string[] = [], blockNumber: number | "latest" = "latest", verify: boolean = true) {
         const proof = await this.fetchStorageProof(address, storageKeys, blockNumber)
         const block = await this.fetchBlock(blockNumber)
-        const blockHeaderRLP = this.getHeaderRLP(block)
 
         if (verify) {
-            // Verify account proof locally
-            const isAccountProofValid = await this.verifyAccountProof(block.stateRoot, address, proof)
-            if (!isAccountProofValid) {
-                throw new Error("Local verification of account proof failed")
-            }
-
-            // Verify storage proofs locally
-            const storageProofs = await Promise.all(proof.storageProof.map(
-                storageProof => this.verifyStorageProof(proof.storageHash, storageProof)
-            ))
-
-            const failedProofs = storageProofs.filter(result => !result)
-
-            if (failedProofs.length > 0) {
-                throw new Error(`Proof failed for storage proofs ${JSON.stringify(failedProofs)}`)
-            }
+            await this.verify(proof, block, address)
         }
 
+        const blockHeaderRLP = this.getHeaderRLP(block)
         const accountProofRLP = this.encodeProof(proof.accountProof)
         const storageProofsRLP = proof.storageProof.map(p => this.encodeProof(p.proof))
 
@@ -60,8 +45,23 @@ export class ERC20Prover {
         return utils.solidityKeccak256(["bytes32", "uint256"], [utils.hexZeroPad(tokenAddress.toLowerCase(), 32), balanceMappingSlot])
     }
 
-    private encodeProof(proof): string {
-        return "0x" + rlp.encode(proof.map(part => rlp.decode(part))).toString("hex")
+    public async verify(proof: StorageProof, block: BlockData, address: string) {
+        // Verify account proof locally
+        const isAccountProofValid = await this.verifyAccountProof(block.stateRoot, address, proof)
+        if (!isAccountProofValid) {
+            throw new Error("Local verification of account proof failed")
+        }
+
+        // Verify storage proofs locally
+        const storageProofs = await Promise.all(proof.storageProof.map(
+            storageProof => this.verifyStorageProof(proof.storageHash, storageProof)
+        ))
+
+        const failedProofs = storageProofs.filter(result => !result)
+
+        if (failedProofs.length > 0) {
+            throw new Error(`Proof failed for storage proofs ${JSON.stringify(failedProofs)}`)
+        }
     }
 
     private verifyAccountProof(stateRoot: string, address: string, proof: StorageProof): Promise<boolean> {
@@ -79,6 +79,8 @@ export class ERC20Prover {
 
         return this.verifyProof(storageRoot, path, storageProof.proof)
             .then(proofStorageValue => {
+                if(!proofStorageValue) throw new Error("Could not verify the proof")
+
                 const stateValueRLP = rlp.encode(storageProof.value)
                 return Buffer.compare(proofStorageValue, stateValueRLP) === 0
             })
@@ -95,6 +97,10 @@ export class ERC20Prover {
         return BaseTrie.verifyProof(rootHashBuff, pathBuff, proofBuffers)
     }
 
+    private encodeProof(proof): string {
+        return "0x" + rlp.encode(proof.map(part => rlp.decode(part))).toString("hex")
+    }
+
     private encodeAccountRlp({ nonce, balance, storageHash, codeHash }: { nonce: string, balance: string, storageHash: string, codeHash: string }) {
         if (balance === "0x0") {
             balance = null // account RLP sets a null value if the balance is 0
@@ -105,17 +111,17 @@ export class ERC20Prover {
 
     private fetchStorageProof(address: string, storageKeys: any[], blockNumber: number | "latest" = "latest"): Promise<StorageProof> {
         return this.provider.send("eth_getProof", [address, storageKeys, utils.hexValue(blockNumber)])
-            .then((response: JsonRpcResponse<StorageProof>) => {
-                if (!response.result) throw new Error("Block not found")
-                return response.result
+            .then((response: StorageProof) => {
+                if (!response) throw new Error("Block not found")
+                return response
             })
     }
 
     private fetchBlock(blockNumber: number | "latest" = "latest"): Promise<BlockData> {
         return this.provider.send("eth_getBlockByNumber", [utils.hexValue(blockNumber), false])
-            .then((response: JsonRpcResponse<BlockData>) => {
-                if (!response.result) throw new Error("Block not found")
-                return response.result
+            .then((response: BlockData) => {
+                if (!response) throw new Error("Block not found")
+                return response
             })
     }
 

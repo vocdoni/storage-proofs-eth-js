@@ -18,8 +18,8 @@
     "postinstall": "rm -Rf node_modules/ganache-core/node_modules/web3-providers-ws/node_modules/websocket/.git || true"
   },
   "dependencies": {
-    "@ethereumjs/block": "^3.0.0-rc.1",
-    "ethers": "^5.0.21",
+    "@ethereumjs/block": "^3.0.0",
+    "ethers": "^5.0.23",
     "merkle-patricia-tree": "^4.0.0"
   },
   "devDependencies": {
@@ -32,7 +32,6 @@
     "ganache-cli": "^6.12.1",
     "ganache-core": "^2.13.1",
     "mocha": "^8.2.1",
-    "solc": "^0.7.5",
     "ts-node": "^9.0.0",
     "tslint": "^6.1.3",
     "typescript": "^4.1.2"

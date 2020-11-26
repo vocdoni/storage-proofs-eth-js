@@ -1,37 +1,20 @@
 import "mocha" // using @types/mocha
 import { expect } from "chai"
 import { ERC20Prover } from "../../src/index"
-import { readFileSync } from "fs"
-import { compile } from "solc"
-import { getAccounts, localProvider, TestAccount } from "../util"
-import { BigNumber, Contract, ContractFactory } from "ethers"
+import { provider } from "../util"
 import { addCompletionHooks } from "../mocha-hooks"
 
 addCompletionHooks()
 
 describe('Token Storage Proofs', () => {
     let storageProover: ERC20Prover
-    let tokenInstance: Contract
-    let holder: TestAccount, otherHolder: TestAccount, noHolder: TestAccount
-
-    const source = readFileSync(__dirname + "/erc20.sol").toString()
-    const erc20Output = compile(JSON.stringify({
-        language: "Solidity",
-        sources: { "erc20.sol": { content: source } },
-        settings: { outputSelection: { "*": { "*": ["*"] } } }
-    }))
-    const { contracts } = JSON.parse(erc20Output)
-    const erc20Abi = contracts["erc20.sol"].SimpleERC20.abi
-    const erc20Bytecode = contracts["erc20.sol"].SimpleERC20.evm.bytecode.object
+    let blockNumber: number
 
     beforeEach(() => {
-        const accounts = getAccounts()
-        holder = accounts[0]
-        otherHolder = accounts[1]
-        noHolder = accounts[2]
-
-        storageProover = new ERC20Prover(localProvider)
+        storageProover = new ERC20Prover(provider)
     })
+
+    const BALANCE_MAPPING_SLOT = 1
 
     it("Should compute a holder's balance slot", () => {
         const data = [
@@ -50,83 +33,25 @@ describe('Token Storage Proofs', () => {
         }
     })
 
-    context('Vanilla ERC20', () => {
-        let blockNumber: number, initialBalance: BigNumber
+    it('Should generate proofs', async () => {
+        const tokenAddr = "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        const holderAddr = "0x1062a747393198f70f71ec65a582423dba7e5ab3"
 
-        const TOTAL_SUPPLY_SLOT = 0
-        const BALANCE_MAPPING_SLOT = 1
+        blockNumber = await provider.getBlockNumber()
+        const balanceSlot = ERC20Prover.getHolderBalanceSlot(holderAddr, BALANCE_MAPPING_SLOT)
+        const result = await storageProover.getProof(tokenAddr, [balanceSlot], blockNumber, false)
 
-        beforeEach(async () => {
-            const contractFactory = new ContractFactory(erc20Abi, erc20Bytecode, holder.wallet)
-            tokenInstance = await contractFactory.deploy() as Contract
-            tokenInstance = tokenInstance.connect(holder.wallet) as Contract
-
-            let tx = await tokenInstance.transfer(otherHolder.address, 1)
-            await tx.wait()
-
-            blockNumber = await localProvider.getBlockNumber()
-            initialBalance = await tokenInstance.balanceOf(holder.address)
-
-            tx = await tokenInstance.transfer(otherHolder.address, 1)
-            await tx.wait()
+        expect(result.proof).to.be.ok
+        expect(Array.isArray(result.proof.accountProof)).to.eq(true)
+        expect(result.proof.balance).to.match(/^0x[0-9a-fA-F]+$/)
+        expect(result.proof.codeHash).to.match(/^0x[0-9a-fA-F]+$/)
+        expect(result.proof.nonce).to.match(/^0x[0-9a-fA-F]+$/)
+        expect(result.proof.storageHash).to.match(/^0x[0-9a-fA-F]+$/)
+        expect(typeof result.proof.storageProof).to.eq("object")
+        expect(result.blockHeaderRLP).to.match(/^0x[0-9a-fA-F]+$/)
+        expect(result.accountProofRLP).to.match(/^0x[0-9a-fA-F]+$/)
+        result.storageProofsRLP.forEach(proof => {
+            expect(proof).to.match(/^0x[0-9a-fA-F]+$/)
         })
-
-        it('gets balance from proof', async () => {
-            // const proof = await storageProover.getProof(tokenInstance.address, [], blockNumber, false)
-
-            const balanceSlot = ERC20Prover.getHolderBalanceSlot(holder.address, BALANCE_MAPPING_SLOT)
-            const { storageProofsRLP } = await storageProover.getProof(tokenInstance.address, [balanceSlot], blockNumber, false)
-
-            // const provenBalance = await tokenStorageProofs.getBalance(
-            //     tokenInstance.address,
-            //     holder,
-            //     blockNumber,
-            //     storageProofsRLP[0],
-            //     tokenType,
-            //     BALANCE_MAPPING_SLOT
-            // )
-
-            // expect(provenBalance.toNumber()).to.eq(initialBalance.toNumber())
-        })
-
-        it('gets 0 balance for non-holder from exclusion proof', async () => {
-            const balanceSlot = ERC20Prover.getHolderBalanceSlot(noHolder.address, BALANCE_MAPPING_SLOT)
-            const { storageProofsRLP, proof } = await storageProover.getProof(tokenInstance.address, [balanceSlot], blockNumber, false)
-
-            // const provenBalance = await tokenStorageProofs.getBalance(
-            //     tokenInstance.address,
-            //     noHolder,
-            //     blockNumber,
-            //     storageProofsRLP[0],
-            //     tokenType,
-            //     BALANCE_MAPPING_SLOT
-            // )
-
-            // expect(provenBalance.toNumber()).to.eq(0)
-
-            // // Ensure that the returned 0 is not from a revert with no error data
-            // await assertSuccess(tokenStorageProofs.getBalance.request(
-            //     tokenInstance.address,
-            //     noHolder,
-            //     blockNumber,
-            //     storageProofsRLP[0],
-            //     tokenType,
-            //     BALANCE_MAPPING_SLOT
-            // ))
-        })
-
-        it('gets total supply from proof', async () => {
-            const { storageProofsRLP } = await storageProover.getProof(tokenInstance.address, [String(TOTAL_SUPPLY_SLOT)], blockNumber, false)
-
-            // const provenTotalSupply = await tokenStorageProofs.getTotalSupply(
-            //     tokenInstance.address,
-            //     blockNumber,
-            //     storageProofsRLP[0],
-            //     tokenType,
-            //     TOTAL_SUPPLY_SLOT
-            // )
-
-            // expect(provenTotalSupply.toNumber()).to.eq((await tokenInstance.totalSupply()).toNumber())
-        })
-    })
+    }).timeout(5000)
 })
