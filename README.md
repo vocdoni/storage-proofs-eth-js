@@ -6,6 +6,12 @@ The library is heavily inspired on the prior work of @izqui on [evm-storage-proo
 
 ## Usage
 
+Instal with NPM:
+
+```sh
+npm install @dvote/storage-proofs
+```
+
 ```typescript
 const tokenAddress = "0x1234..."
 const holderAddress = "0x2345..."
