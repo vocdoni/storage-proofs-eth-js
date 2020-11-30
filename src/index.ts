@@ -24,7 +24,7 @@ export class ERC20Prover {
         const block = await this.fetchBlock(blockNumber)
 
         if (verify) {
-            await this.verify(proof, block, address)
+            await this.verify(block.stateRoot, address, proof)
         }
 
         const blockHeaderRLP = this.getHeaderRLP(block)
@@ -45,9 +45,9 @@ export class ERC20Prover {
         return utils.solidityKeccak256(["bytes32", "uint256"], [utils.hexZeroPad(tokenAddress.toLowerCase(), 32), balanceMappingSlot])
     }
 
-    public async verify(proof: StorageProof, block: BlockData, address: string) {
+    public async verify(stateRoot: string, address: string, proof: StorageProof) {
         // Verify account proof locally
-        const isAccountProofValid = await this.verifyAccountProof(block.stateRoot, address, proof)
+        const isAccountProofValid = await this.verifyAccountProof(stateRoot, address, proof)
         if (!isAccountProofValid) {
             throw new Error("Local verification of account proof failed")
         }
@@ -79,7 +79,7 @@ export class ERC20Prover {
 
         return this.verifyProof(storageRoot, path, storageProof.proof)
             .then(proofStorageValue => {
-                if(!proofStorageValue) throw new Error("Could not verify the proof")
+                if (!proofStorageValue) throw new Error("Could not verify the proof")
 
                 const stateValueRLP = rlp.encode(storageProof.value)
                 return Buffer.compare(proofStorageValue, stateValueRLP) === 0
