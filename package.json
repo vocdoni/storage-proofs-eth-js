@@ -1,10 +1,10 @@
 {
-    "name": "@dvote/storage-proofs",
+    "name": "@vocdoni/storage-proofs-eth",
     "version": "0.2.0",
     "description": "Javascript/Typescript library to generate storage proofs for ERC token contracts",
     "main": "dist/index",
     "types": "dist/index",
-    "repository": "https://github.com/vocdoni/storage-proofs.git",
+    "repository": "https://github.com/vocdoni/storage-proofs-eth-js.git",
     "author": "Vocdoni <root@vocdoni.io>",
     "license": "GPL-3.0-or-later",
     "private": false,

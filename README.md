@@ -1,15 +1,15 @@
-# DVote Storage Proofs
+# Storage Proofs
 
 Javascript/Typescript library to generate storage proofs for ERC token contracts.
 
-The library is heavily inspired on the prior work of @izqui on [evm-storage-proofs](https://github.com/aragon/evm-storage-proofs).
+The library is heavily inspired on the prior work of [@izqui](https://github.com/izqui) on [evm-storage-proofs](https://github.com/aragon/evm-storage-proofs).
 
 ## Usage
 
 Instal with NPM:
 
 ```sh
-npm install @dvote/storage-proofs
+npm install @vocdoni/storage-proofs-eth
 ```
 
 ```typescript
