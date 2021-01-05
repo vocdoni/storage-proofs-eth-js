@@ -40,9 +40,9 @@ export class ERC20Prover {
         }
     }
 
-    public static getHolderBalanceSlot(tokenAddress: string, balanceMappingSlot: number): string {
+    public static getHolderBalanceSlot(holderAddress: string, balanceMappingSlot: number): string {
         // Equivalent to keccak256(abi.encodePacked(bytes32(holder), balanceMappingPosition));
-        return utils.solidityKeccak256(["bytes32", "uint256"], [utils.hexZeroPad(tokenAddress.toLowerCase(), 32), balanceMappingSlot])
+        return utils.solidityKeccak256(["bytes32", "uint256"], [utils.hexZeroPad(holderAddress.toLowerCase(), 32), balanceMappingSlot])
     }
 
     public async verify(stateRoot: string, address: string, proof: StorageProof) {
