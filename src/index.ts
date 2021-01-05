@@ -5,8 +5,8 @@ import { BaseTrie } from "merkle-patricia-tree"
 import { Proof } from "merkle-patricia-tree/dist/baseTrie"
 import { rlp } from "ethereumjs-util"
 
-// TODO: For browsers to work, using Buffer from NPM is required
-// import { Buffer } from "buffer/"
+// For browsers to work, using Buffer from NPM is required
+import { Buffer } from "buffer/"
 
 export class ERC20Prover {
     provider: providers.JsonRpcProvider | providers.Web3Provider | providers.IpcProvider | providers.InfuraProvider
@@ -81,7 +81,7 @@ export class ERC20Prover {
             .then(proofStorageValue => {
                 if (!proofStorageValue) throw new Error("Could not verify the proof")
 
-                const stateValueRLP = rlp.encode(storageProof.value)
+                const stateValueRLP = new Buffer(rlp.encode(storageProof.value))
                 return Buffer.compare(proofStorageValue, stateValueRLP) === 0
             })
     }
@@ -92,21 +92,22 @@ export class ERC20Prover {
 
         const rootHashBuff = Buffer.from(rootHash.replace("0x", ""), "hex")
         const pathBuff = Buffer.from(path.replace("0x", ""), "hex")
-        const proofBuffers: Proof = proof.map(p => Buffer.from(p.replace("0x", ""), "hex"))
+        const proofBuffers: Proof = proof.map(p => Buffer.from(p.replace("0x", ""), "hex")) as any
 
-        return BaseTrie.verifyProof(rootHashBuff, pathBuff, proofBuffers)
+        return BaseTrie.verifyProof(rootHashBuff as any, pathBuff as any, proofBuffers as any)
+            .then(result => new Buffer(result)) // Cast to the polyfilled Buffer
     }
 
     private encodeProof(proof): string {
         return "0x" + rlp.encode(proof.map(part => rlp.decode(part))).toString("hex")
     }
 
-    private encodeAccountRlp({ nonce, balance, storageHash, codeHash }: { nonce: string, balance: string, storageHash: string, codeHash: string }) {
+    private encodeAccountRlp({ nonce, balance, storageHash, codeHash }: { nonce: string, balance: string, storageHash: string, codeHash: string }): Buffer {
         if (balance === "0x0") {
             balance = null // account RLP sets a null value if the balance is 0
         }
 
-        return rlp.encode([nonce, balance, storageHash, codeHash])
+        return new Buffer(rlp.encode([nonce, balance, storageHash, codeHash])) // Cast to the polyfilled buffer
     }
 
     private fetchStorageProof(address: string, storageKeys: any[], blockNumber: number | "latest" = "latest"): Promise<StorageProof> {

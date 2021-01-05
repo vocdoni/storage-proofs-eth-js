@@ -1,6 +1,6 @@
 {
     "name": "@vocdoni/storage-proofs-eth",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "description": "Javascript/Typescript library to generate storage proofs for ERC token contracts",
     "main": "dist/index",
     "types": "dist/index",
