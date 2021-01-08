@@ -19,7 +19,7 @@ export class ERC20Prover {
         this.provider = provider
     }
 
-    async getProof(address: string, storageKeys: string[] = [], blockNumber: number | "latest" = "latest", verify: boolean = true) {
+    async getProof(address: string, storageKeys: string[] = [], blockNumber: number | "latest" = "latest", verify?: boolean) {
         const proof = await this.fetchStorageProof(address, storageKeys, blockNumber)
         const block = await this.fetchBlock(blockNumber)
 
