@@ -5,9 +5,6 @@ import { BaseTrie } from "merkle-patricia-tree"
 import { Proof } from "merkle-patricia-tree/dist/baseTrie"
 import { rlp } from "ethereumjs-util"
 
-// TODO: For browsers to work, using Buffer from NPM is required
-// import { Buffer } from "buffer/"
-
 export class ERC20Prover {
     provider: providers.JsonRpcProvider | providers.Web3Provider | providers.IpcProvider | providers.InfuraProvider
 

@@ -3,6 +3,7 @@
         "module": "commonjs",
         "moduleResolution": "node",
         "resolveJsonModule": true,
+        "esModuleInterop": true,
         "pretty": true,
         "declaration": true,
         "sourceMap": true,
