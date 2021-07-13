@@ -1,6 +1,7 @@
 import { providers, utils } from "ethers"
 import { BlockData, StorageProof } from "./types"
 import blockHeaderFromRpc from "@ethereumjs/block/dist/header-from-rpc"
+import EthCommon from "@ethereumjs/common"
 import { BaseTrie } from "merkle-patricia-tree"
 import { Proof } from "merkle-patricia-tree/dist/baseTrie"
 import { rlp } from "ethereumjs-util"
@@ -24,7 +25,7 @@ export class ERC20Prover {
             await this.verify(block.stateRoot, address, proof)
         }
 
-        const blockHeaderRLP = this.getHeaderRLP(block)
+        const blockHeaderRLP = await this.getHeaderRLP(block)
         const accountProofRLP = this.encodeProof(proof.accountProof)
         const storageProofsRLP = proof.storageProof.map(p => this.encodeProof(p.proof))
 
@@ -122,15 +123,17 @@ export class ERC20Prover {
             })
     }
 
-    private getHeaderRLP(rpcBlock: BlockData): string {
-        const header = blockHeaderFromRpc(rpcBlock)
-        const blockHeaderRLP = "0x" + header.serialize().toString("hex")
-        const solidityBlockHash = "0x" + header.hash().toString("hex")
+    private getHeaderRLP(rpcBlock: BlockData): Promise<string> {
+        return this.provider.getNetwork().then(network => {
+            const header = blockHeaderFromRpc(rpcBlock, { common: new EthCommon({ chain: network.name }) })
+            const blockHeaderRLP = "0x" + header.serialize().toString("hex")
+            const solidityBlockHash = "0x" + header.hash().toString("hex")
 
-        if (solidityBlockHash !== rpcBlock.hash) {
-            throw new Error(`Block header RLP hash (${solidityBlockHash}) doesn't match block hash (${rpcBlock.hash})`)
-        }
+            if (solidityBlockHash !== rpcBlock.hash) {
+                throw new Error(`Block header RLP hash (${solidityBlockHash}) doesn't match block hash (${rpcBlock.hash})`)
+            }
 
-        return blockHeaderRLP
+            return blockHeaderRLP
+        })
     }
 }
