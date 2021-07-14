@@ -125,14 +125,35 @@ export class ERC20Prover {
     }
 
     private getHeaderRLP(rpcBlock: BlockData, networkId: string): string {
-        const header = blockHeaderFromRpc(rpcBlock, { common: new EthCommon({ chain: networkId, hardfork: "london" }) })
-        const blockHeaderRLP = "0x" + header.serialize().toString("hex")
-        const solidityBlockHash = "0x" + header.hash().toString("hex")
+        const common = getEthHeaderParseOptions(parseInt(rpcBlock.number), networkId)
 
-        if (solidityBlockHash !== rpcBlock.hash) {
-            throw new Error(`Block header RLP hash (${solidityBlockHash}) doesn't match block hash (${rpcBlock.hash})`)
+        const header = blockHeaderFromRpc(rpcBlock, { common })
+
+        const blockHash = "0x" + header.hash().toString("hex")
+        if (blockHash !== rpcBlock.hash) {
+            throw new Error(`Block header RLP hash (${blockHash}) doesn't match block hash (${rpcBlock.hash})`)
         }
 
-        return blockHeaderRLP
+        const blockHeaderRLP = header.serialize().toString("hex")
+        return "0x" + blockHeaderRLP
     }
+}
+
+// HELPERS
+
+function getEthHeaderParseOptions(blockNumber: number, networkId: string) {
+    switch (networkId) {
+        case "mainnet":
+        case "homestead":
+            networkId = "mainnet"
+            if (blockNumber < 12965000) return new EthCommon({ chain: networkId })
+        case "ropsten":
+            if (blockNumber < 10499401) return new EthCommon({ chain: networkId })
+        case "goerli":
+            if (blockNumber < 5062605) return new EthCommon({ chain: networkId })
+        case "rinkeby":
+            if (blockNumber < 8897988) return new EthCommon({ chain: networkId })
+    }
+
+    return new EthCommon({ chain: networkId, hardfork: "london" })
 }
