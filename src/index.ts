@@ -69,20 +69,6 @@ export class ERC20Prover {
         }
     }
 
-    /** Checks whether the given key has no branch leading to it on the given Trie */
-    public static isNonExisting(hexKey: string, proof: StorageProof["storageProof"][0]["proof"]) {
-        // https://github.com/ethereumjs/merkle-patricia-tree/blob/master/test/proof.spec.ts#L10-L37
-        const proofNodes = proof.map(p => Buffer.from(p.replace("0x", "")))
-        return BaseTrie.fromProof(proofNodes)
-            .then(trie => {
-                const key = Buffer.from(hexKey.replace("0x", ""))
-                return trie.get(key)
-            })
-            .then(node => {
-                return node === null
-            })
-    }
-
     // PRIVATE
 
     private verifyAccountProof(stateRoot: string, contractAddress: string, proof: StorageProof): Promise<boolean> {
@@ -102,13 +88,17 @@ export class ERC20Prover {
 
         return this.verifyProof(storageRoot, path, storageProof.proof)
             .then(proofStorageValue => {
-                if (!proofStorageValue) throw new Error("Could not verify the storage proof")
+                // If non-existing, then the value should be zero
+                if (proofStorageValue === null) {
+                    return storageProof.value === "0x0"
+                }
 
                 const stateValueRLP = rlp.encode(storageProof.value)
                 return Buffer.compare(proofStorageValue, stateValueRLP) === 0
             })
     }
 
+    /**  Returns null if not existing. Returns the leaf value otherwise. */
     private verifyProof(rootHash: string, path: string, proof: string[]): Promise<Buffer> {
         // Note: crashing when the account is not used???
         // Error: Key does not match with the proof one (extention|leaf)

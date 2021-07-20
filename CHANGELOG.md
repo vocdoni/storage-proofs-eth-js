@@ -1,7 +1,7 @@
 # Changelog
 
 ## v0.4.0
-- Adding `Erc20Prover.isNonExisting(key, proof)`
+- `verifyProof()` now checks for existence when a value is defined, and checks for non-existence when the path is empty
 
 ## v0.3.2
 

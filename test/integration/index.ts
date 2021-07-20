@@ -76,16 +76,67 @@ describe('Token Storage Proofs', () => {
         expect(valid).to.eq(true)
     }).timeout(10000)
 
+    it('Should proof that a value does exist', async () => {
+        const holderAddress = "0x1062a747393198f70f71ec65a582423dba7e5ab3"
+
+        const balanceSlot = ERC20Prover.getHolderBalanceSlot(holderAddress, BALANCE_MAPPING_SLOT)
+        const storageKeys = [balanceSlot]
+        const { proof } = await storageProover.getProof(TOKEN_ADDRESS, storageKeys, "latest", true)
+        expect(proof.storageProof[0].value).to.not.eq("0x0")
+    }).timeout(10000)
+
     it('Should verify a proof of non-existence', async () => {
         const holderAddress = "0x0010000000000000000000000000000000000000"
-        const tokenAddress = "0x6b175474e89094c44da98b954eedeac495271d0e"
+        const tokenAddress = "0x6b175474e89094c44da98b954eedeac495271d0f"
 
         const balanceSlot = ERC20Prover.getHolderBalanceSlot(holderAddress, 100)
         const storageKeys = [balanceSlot]
 
-        const { proof } = await storageProover.getProof(tokenAddress, storageKeys, "latest", false)
+        const { proof, block } = await storageProover.getProof(tokenAddress, storageKeys, "latest", true)
         expect(proof.storageProof[0].value).to.eq("0x0")
 
-        expect(await ERC20Prover.isNonExisting(balanceSlot, proof.storageProof[0].proof)).to.eq(true)
+        await storageProover.verify(block.stateRoot, tokenAddress, proof)
+    }).timeout(10000)
+
+    it('Should fail verifying if some value has been tampered', async () => {
+        const holderAddress = "0x0010000000000000000000000000000000000000"
+        const tokenAddress = "0x6b175474e89094c44da98b954eedeac495271d0f"
+        const unrealBalanceMappingPosition = 100
+
+        const balanceSlot = ERC20Prover.getHolderBalanceSlot(holderAddress, unrealBalanceMappingPosition)
+        const storageKeys = [balanceSlot]
+
+        {
+            const { proof, block } = await storageProover.getProof(tokenAddress, storageKeys, "latest", true)
+            expect(proof.storageProof[0].value).to.eq("0x0")
+
+            // Corrupt the proof
+            block.stateRoot = "0x0011223344556677889900003b11fd580a50d3054c144ca7caa623f29073d39d"
+
+            try {
+                await storageProover.verify(block.stateRoot, tokenAddress, proof)
+                throw new Error("Should have failed but didn't")
+            } catch (err) {
+                expect(err.message).to.not.eq("Should have failed but didn't")
+            }
+        }
+
+        // 2
+        // TODO: The library should be throwing an error, but doesn't
+
+        // {
+        //     const { proof, block } = await storageProover.getProof(tokenAddress, storageKeys, "latest", true)
+        //     expect(proof.storageProof[0].value).to.eq("0x0")
+
+        //     // Corrupt the proof
+        //     proof.storageProof[0].proof = []
+
+        //     try {
+        //         await storageProover.verify(block.stateRoot, tokenAddress, proof)
+        //         throw new Error("Should have failed but didn't")
+        //     } catch (err) {
+        //         expect(err.message).to.not.eq("Should have failed but didn't")
+        //     }
+        // }
     }).timeout(10000)
 })
