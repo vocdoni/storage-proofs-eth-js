@@ -71,10 +71,21 @@ describe('Token Storage Proofs', () => {
             ]
         }
 
-        blockNumber = 11346696
         const valid = await storageProover["verifyStorageProof"](storageRoot, storageProof)
 
         expect(valid).to.eq(true)
+    }).timeout(10000)
 
+    it('Should verify a proof of non-existence', async () => {
+        const holderAddress = "0x0010000000000000000000000000000000000000"
+        const tokenAddress = "0x6b175474e89094c44da98b954eedeac495271d0e"
+
+        const balanceSlot = ERC20Prover.getHolderBalanceSlot(holderAddress, 100)
+        const storageKeys = [balanceSlot]
+
+        const { proof } = await storageProover.getProof(tokenAddress, storageKeys, "latest", false)
+        expect(proof.storageProof[0].value).to.eq("0x0")
+
+        expect(await ERC20Prover.isNonExisting(balanceSlot, proof.storageProof[0].proof)).to.eq(true)
     }).timeout(10000)
 })

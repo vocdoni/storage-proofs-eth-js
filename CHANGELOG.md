@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.4.0
+- Adding `Erc20Prover.isNonExisting(key, proof)`
+
 ## v0.3.2
 
 - Using the London hard fork
