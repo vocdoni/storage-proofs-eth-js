@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.4.0
+- `verifyProof()` now checks for existence when a value is defined, and checks for non-existence when the path is empty
+
 ## v0.3.2
 
 - Using the London hard fork

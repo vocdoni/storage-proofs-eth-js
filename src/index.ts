@@ -17,12 +17,16 @@ export class ERC20Prover {
         this.provider = provider
     }
 
-    async getProof(address: string, storageKeys: string[] = [], blockNumber: number | "latest" = "latest", verify?: boolean) {
-        const proof = await this.fetchStorageProof(address, storageKeys, blockNumber)
-        const block = await this.fetchBlock(blockNumber)
+    /** Fetches (and optionally verifies) the storage proof of the given keys within the given contract */
+    async getProof(contractAddress: string, storageKeys: string[] = [], blockNumber: number | "latest" = "latest", verify?: boolean) {
+        const targetBlockNumber = typeof blockNumber == "number" ?
+            blockNumber : await this.provider.getBlockNumber()
+
+        const proof = await this.fetchStorageProof(contractAddress, storageKeys, targetBlockNumber)
+        const block = await this.fetchBlock(targetBlockNumber)
 
         if (verify) {
-            await this.verify(block.stateRoot, address, proof)
+            await this.verify(block.stateRoot, contractAddress, proof)
         }
 
         const network = await this.provider.getNetwork()
@@ -39,14 +43,16 @@ export class ERC20Prover {
         }
     }
 
-    public static getHolderBalanceSlot(holderAddress: string, balanceMappingSlot: number): string {
+    /** Computes the slot where the given token holder would have its balance stored, if the balance mapping was assigned the given position */
+    public static getHolderBalanceSlot(holderAddress: string, balanceMappingPosition: number): string {
         // Equivalent to keccak256(abi.encodePacked(bytes32(holder), balanceMappingPosition));
-        return utils.solidityKeccak256(["bytes32", "uint256"], [utils.hexZeroPad(holderAddress.toLowerCase(), 32), balanceMappingSlot])
+        return utils.solidityKeccak256(["bytes32", "uint256"], [utils.hexZeroPad(holderAddress.toLowerCase(), 32), balanceMappingPosition])
     }
 
-    public async verify(stateRoot: string, address: string, proof: StorageProof) {
+    /** Returns true if the given proof conforms to the given stateRoot and contract address */
+    public async verify(stateRoot: string, contractAddress: string, proof: StorageProof) {
         // Verify account proof locally
-        const isAccountProofValid = await this.verifyAccountProof(stateRoot, address, proof)
+        const isAccountProofValid = await this.verifyAccountProof(stateRoot, contractAddress, proof)
         if (!isAccountProofValid) {
             throw new Error("Local verification of account proof failed")
         }
@@ -63,28 +69,36 @@ export class ERC20Prover {
         }
     }
 
-    private verifyAccountProof(stateRoot: string, address: string, proof: StorageProof): Promise<boolean> {
-        const path = utils.keccak256(address).slice(2)
+    // PRIVATE
+
+    private verifyAccountProof(stateRoot: string, contractAddress: string, proof: StorageProof): Promise<boolean> {
+        const path = utils.keccak256(contractAddress).slice(2)
 
         return this.verifyProof(stateRoot, path, proof.accountProof)
             .then(proofAccountRLP => {
+                if (!proofAccountRLP) throw new Error("Could not verify the account proof")
+
                 const stateAccountRlp = this.encodeAccountRlp(proof)
                 return Buffer.compare(stateAccountRlp, proofAccountRLP) === 0
             })
     }
 
     private verifyStorageProof(storageRoot: string, storageProof: { key: string, proof: string[], value: string }): Promise<boolean> {
-        const path = utils.solidityKeccak256(["uint256",], [storageProof.key]).slice(2)
+        const path = utils.solidityKeccak256(["uint256"], [storageProof.key]).slice(2)
 
         return this.verifyProof(storageRoot, path, storageProof.proof)
             .then(proofStorageValue => {
-                if (!proofStorageValue) throw new Error("Could not verify the proof")
+                // If non-existing, then the value should be zero
+                if (proofStorageValue === null) {
+                    return storageProof.value === "0x0"
+                }
 
                 const stateValueRLP = rlp.encode(storageProof.value)
                 return Buffer.compare(proofStorageValue, stateValueRLP) === 0
             })
     }
 
+    /**  Returns null if not existing. Returns the leaf value otherwise. */
     private verifyProof(rootHash: string, path: string, proof: string[]): Promise<Buffer> {
         // Note: crashing when the account is not used???
         // Error: Key does not match with the proof one (extention|leaf)
@@ -108,16 +122,20 @@ export class ERC20Prover {
         return rlp.encode([nonce, balance, storageHash, codeHash])
     }
 
-    private fetchStorageProof(address: string, storageKeys: any[], blockNumber: number | "latest" = "latest"): Promise<StorageProof> {
-        return this.provider.send("eth_getProof", [address, storageKeys, utils.hexValue(blockNumber)])
+    private fetchStorageProof(contractAddress: string, storageKeys: any[], blockNumber: number): Promise<StorageProof> {
+        const hexBlockNumber = utils.hexValue(blockNumber)
+
+        return this.provider.send("eth_getProof", [contractAddress, storageKeys, hexBlockNumber])
             .then((response: StorageProof) => {
                 if (!response) throw new Error("Block not found")
                 return response
             })
     }
 
-    private fetchBlock(blockNumber: number | "latest" = "latest"): Promise<BlockData> {
-        return this.provider.send("eth_getBlockByNumber", [utils.hexValue(blockNumber), false])
+    private fetchBlock(blockNumber: number): Promise<BlockData> {
+        const hexBlockNumber = utils.hexValue(blockNumber)
+
+        return this.provider.send("eth_getBlockByNumber", [hexBlockNumber, false])
             .then((response: BlockData) => {
                 if (!response) throw new Error("Block not found")
                 return response
