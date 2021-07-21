@@ -17,12 +17,14 @@ const tokenAddress = "0x1234..."
 const holderAddress = "0x2345..."
 const balancePositionIdx = 1
 
-const balanceSlot = ERC20Prover.getHolderBalanceSlot(holderAddress, balancePositionIdx)
+const balanceSlot = ERC20Proof.getHolderBalanceSlot(holderAddress, balancePositionIdx)
 
-const storageProover = new ERC20Prover(jsonRpcUri)
-const data = await storageProover.getProof(tokenAddress, [balanceSlot], blockNumber, true)
+const result = await ERC20Proof.get(tokenAddress, [balanceSlot], blockNumber, jsonRpcUri)
 
-const { proof, block, blockHeaderRLP, accountProofRLP, storageProofsRLP } = data
+const { proof, block, blockHeaderRLP, accountProofRLP, storageProofsRLP } = result
+
+// Throws if not valid
+await ERC20Proof.verify(block.stateRoot, tokenAddress, proof)
 
 // ...
 ```
