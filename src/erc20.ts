@@ -12,9 +12,9 @@ export namespace ERC20Proof {
         const block = await EthProvider.fetchBlock(targetBlockNumber, provider)
 
         const network = await provider.getNetwork()
-        const blockHeaderRLP = EthProofs.getHeaderRLP(block, network.name)
-        const accountProofRLP = EthProofs.encodeProof(proof.accountProof)
-        const storageProofsRLP = proof.storageProof.map(p => EthProofs.encodeProof(p.proof))
+        const blockHeaderRLP = EthProofs.getHeaderRlp(block, network.name)
+        const accountProofRLP = EthProofs.encodeProofRlp(proof.accountProof)
+        const storageProofsRLP = proof.storageProof.map(p => EthProofs.encodeProofRlp(p.proof))
 
         return {
             proof,
@@ -33,7 +33,7 @@ export namespace ERC20Proof {
         return EthProofs.verifyAccountProof(stateRoot, contractAddress, proof)
             .then(isAccountProofValid => {
                 if (!isAccountProofValid) {
-                    throw new Error("Local verification of account proof failed")
+                    throw new Error("The account proof is not valid")
                 }
 
                 // Verify storage proofs locally
@@ -44,7 +44,8 @@ export namespace ERC20Proof {
                 const failedProofs = storageProofs.filter(result => !result)
 
                 if (failedProofs.length > 0) {
-                    throw new Error(`Proof failed for storage proofs ${JSON.stringify(failedProofs)}`)
+                    const invalidIndexes = storageProofs.map((valid, idx) => valid ? -1 : idx).filter(idx => idx >= 0)
+                    throw new Error(`Some storage proof(s) are not valid: ${invalidIndexes.join(", ")}`)
                 }
             })
     }
