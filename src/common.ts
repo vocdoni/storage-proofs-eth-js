@@ -78,8 +78,9 @@ export namespace EthProofs {
     return BaseTrie.verifyProof(rootHashBuff, pathBuff, proofBuffers)
   }
 
-  export function encodeProof(proof): string {
-    return "0x" + rlp.encode(proof.map(part => rlp.decode(part))).toString("hex")
+  export function encodeProofRlp(proofHexParts: string[]): string {
+    const proofParts = proofHexParts.map(part => rlp.decode(part)) as Buffer[][]
+    return "0x" + rlp.encode(proofParts).toString("hex")
   }
 
   export function encodeAccountRlp({ nonce, balance, storageHash, codeHash }: { nonce: string, balance: string, storageHash: string, codeHash: string }) {
@@ -90,7 +91,7 @@ export namespace EthProofs {
     return rlp.encode([nonce, balance, storageHash, codeHash])
   }
 
-  export function getHeaderRLP(rpcBlock: BlockData, networkId: string): string {
+  export function getHeaderRlp(rpcBlock: BlockData, networkId: string): string {
     const common = getEthHeaderParseOptions(parseInt(rpcBlock.number), networkId)
 
     const header = blockHeaderFromRpc(rpcBlock, { common })
