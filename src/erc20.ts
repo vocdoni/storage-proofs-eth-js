@@ -1,6 +1,9 @@
 import { EthProofs, EthProvider } from "./common"
-import { utils } from "ethers"
+import { Contract, BigNumber, providers } from "ethers"
 import { StorageProof } from "./types"
+import { ERC20_ABI } from "./abi/erc"
+
+const MAX_POSITION_ATTEMPTS = 50
 
 export namespace ERC20Proof {
     /** Fetches the storage proof of the given keys within the given contract */
@@ -50,13 +53,36 @@ export namespace ERC20Proof {
             })
     }
 
-    /** Computes the slot where the given token holder would have its balance stored,
-     * if the balance mapping was assigned the given position */
-    export function getHolderBalanceSlot(holderAddress: string, balanceMappingPosition: number): string {
-        // Equivalent to keccak256(abi.encodePacked(bytes32(holder), balanceMappingPosition));
-        return utils.solidityKeccak256(
-            ["bytes32", "uint256"],
-            [utils.hexZeroPad(holderAddress.toLowerCase(), 32), balanceMappingPosition]
-        )
+    /**
+     * Attempts to find the index at which the holder balances are stored within the token contract.
+     * If the position cannot be found among the 50 first ones, `null` is returned.
+     */
+    export async function findBalanceMappingPosition(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
+        const blockNumber = await provider.getBlockNumber()
+        const tokenInstance = new Contract(tokenAddress, ERC20_ABI, provider)
+        const balance = await tokenInstance.balanceOf(holderAddress) as BigNumber
+        if (balance.isZero()) throw new Error("The holder has no balance")
+
+        for (let pos = 0; pos < MAX_POSITION_ATTEMPTS; pos++) {
+            try {
+                const holderBalanceSlot = EthProofs.getMapSlot(holderAddress, pos)
+
+                const result = await get(tokenAddress, [holderBalanceSlot], blockNumber, provider)
+                if (result == null || !result.proof) continue
+
+                // Throws if not valid
+                await verify(result.block.stateRoot, tokenAddress, result.proof)
+
+                const onChainBalance = BigNumber.from(result.proof.storageProof[0].value)
+                if (!onChainBalance.eq(balance)) continue
+
+                // Found
+                return pos
+            }
+            catch (err) {
+                continue
+            }
+        }
+        return null
     }
 }
