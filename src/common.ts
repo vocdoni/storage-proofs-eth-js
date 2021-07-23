@@ -6,6 +6,8 @@ import { BaseTrie } from "merkle-patricia-tree"
 import { Proof } from "merkle-patricia-tree/dist/baseTrie"
 import { rlp } from "ethereumjs-util"
 
+// NETWORK
+
 export namespace EthProvider {
   type ProviderDetails = string | providers.JsonRpcProvider | providers.Web3Provider | providers.IpcProvider | providers.InfuraProvider
   export type Providerish = providers.JsonRpcProvider | providers.Web3Provider | providers.IpcProvider | providers.InfuraProvider
@@ -38,6 +40,8 @@ export namespace EthProvider {
   }
 }
 
+// PROOF MANAGEMENT
+
 export namespace EthProofs {
   export function verifyAccountProof(stateRoot: string, contractAddress: string, proof: StorageProof): Promise<boolean> {
     const path = utils.keccak256(contractAddress).slice(2)
@@ -66,29 +70,17 @@ export namespace EthProofs {
       })
   }
 
-  /**  Returns null if not existing. Returns the leaf value otherwise. */
-  export function verifyProof(rootHash: string, path: string, proof: string[]): Promise<Buffer> {
-    // Note: crashing when the account is not used???
-    // Error: Key does not match with the proof one (extention|leaf)
-
-    const rootHashBuff = Buffer.from(rootHash.replace("0x", ""), "hex")
-    const pathBuff = Buffer.from(path.replace("0x", ""), "hex")
-    const proofBuffers: Proof = proof.map(p => Buffer.from(p.replace("0x", ""), "hex"))
-
-    return BaseTrie.verifyProof(rootHashBuff, pathBuff, proofBuffers)
-  }
-
-  export function encodeProofRlp(proofHexParts: string[]): string {
-    const proofParts = proofHexParts.map(part => rlp.decode(part)) as Buffer[][]
-    return "0x" + rlp.encode(proofParts).toString("hex")
-  }
-
   export function encodeAccountRlp({ nonce, balance, storageHash, codeHash }: { nonce: string, balance: string, storageHash: string, codeHash: string }) {
     if (balance === "0x0") {
       balance = null // account RLP sets a null value if the balance is 0
     }
 
     return rlp.encode([nonce, balance, storageHash, codeHash])
+  }
+
+  export function encodeProofRlp(proofHexParts: string[]): string {
+    const proofParts = proofHexParts.map(part => rlp.decode(part)) as Buffer[][]
+    return "0x" + rlp.encode(proofParts).toString("hex")
   }
 
   export function getHeaderRlp(rpcBlock: BlockData, networkId: string): string {
@@ -105,7 +97,36 @@ export namespace EthProofs {
     return "0x" + blockHeaderRLP
   }
 
+  /** Computes the slot where the given token holder would have its balance stored,
+   * if the balance mapping was assigned the given position */
+  export function getMapSlot(holderAddress: string, mappingPosition: number): string {
+    // Equivalent to keccak256(abi.encodePacked(bytes32(holder), mappingPosition));
+    return utils.solidityKeccak256(
+      ["bytes32", "uint256"],
+      [utils.hexZeroPad(holderAddress.toLowerCase(), 32), mappingPosition]
+    )
+  }
+
+  /** Computes the slot where the given token holder would have its balance stored,
+   * if the balance mapping was assigned the given position */
+  export function getArraySlot(position: number): string {
+    // Equivalent to keccak256(abi.encodePacked(position));
+    return utils.solidityKeccak256(["uint256"], [position])
+  }
+
   // HELPERS
+
+  /**  Returns null if not existing. Returns the leaf value otherwise. */
+  function verifyProof(rootHash: string, path: string, proof: string[]): Promise<Buffer> {
+    // Note: crashing when the account is not used???
+    // Error: Key does not match with the proof one (extention|leaf)
+
+    const rootHashBuff = Buffer.from(rootHash.replace("0x", ""), "hex")
+    const pathBuff = Buffer.from(path.replace("0x", ""), "hex")
+    const proofBuffers: Proof = proof.map(p => Buffer.from(p.replace("0x", ""), "hex"))
+
+    return BaseTrie.verifyProof(rootHashBuff, pathBuff, proofBuffers)
+  }
 
   function getEthHeaderParseOptions(blockNumber: number, networkId: string) {
     switch (networkId) {
