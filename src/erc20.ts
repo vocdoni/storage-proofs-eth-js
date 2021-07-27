@@ -43,7 +43,8 @@ export namespace ERC20Proof {
                 return Promise.all(proof.storageProof.map(
                     storageProof => EthProofs.verifyStorageProof(proof.storageHash, storageProof)
                 ))
-            }).then(storageProofs => {
+            })
+            .then(storageProofs => {
                 const failedProofs = storageProofs.filter(result => !result)
 
                 if (failedProofs.length > 0) {
