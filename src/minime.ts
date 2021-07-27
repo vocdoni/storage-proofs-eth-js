@@ -24,9 +24,7 @@ export namespace MiniMeProof {
       hexKeys.push(currHexSlot)
       hexKeys.push(nextHexSlot)
     }
-
-    if (hexKeys.length == 0) {
-
+    else {
       // TODO: Turn into a binary search
 
       for (let i = checkPointsSize - 1; i > 0; i--) {
@@ -69,7 +67,7 @@ export namespace MiniMeProof {
     })
 
     // Check the proof keys (should match with the holder)
-    await checkMiniMeKeys(proofs[0].key, proofs[1].key, holderAddress, mapIndexSlot)
+    checkMiniMeKeys(proofs[0].key, proofs[1].key, holderAddress, mapIndexSlot)
 
     // Extract balance and block from the minime proof
     const { block: proof0Block, balance: proof0Balance } = parseCheckPointValue(proofs[0].value)
