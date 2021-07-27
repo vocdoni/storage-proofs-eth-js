@@ -29,8 +29,10 @@ export type StorageProof = {
     codeHash: string,
     nonce: string,
     storageHash: string,
-    storageProof: { key: string, proof: string[], value: string }[]
+    storageProof: StorageResult[]
 }
+
+export type StorageResult = { key: string, proof: string[], value: string }
 
 // JSON RPC Response types
 
