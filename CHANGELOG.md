@@ -2,10 +2,11 @@
 
 ## v0.5.0
 - Adding `MiniMeProof`
-- Restructuring `Erc20Proover` into `ERC20Proof`
+- [Breaking] Restructuring `Erc20Proover` into `ERC20Proof`
   - Not a class anymore. Now it's a namespace (stateless).
-  - `ERC20Prover#getProof()` is now called `ERC20Proof.get()`
+  - `ERC20Prover.getProof()` is now called `ERC20Proof.get()`
   - `provider` is now a parameter of `ERC20Proof.get`
+  - `ERC20Prover.getHolderBalanceSlot` is now `EthProofs.getMapSlot`
 - Proof generation and verification are now completely independent
   - Generating proofs no longer accepts `verify` as a parameter
 
