@@ -113,35 +113,37 @@ export namespace EthProofs {
     // Equivalent to keccak256(abi.encodePacked(position));
     return utils.solidityKeccak256(["uint256"], [position])
   }
+}
 
-  // HELPERS
+///////////////////////////////////////////////////////////////////////////////
+// HELPERS
 
-  /**  Returns null if not existing. Returns the leaf value otherwise. */
-  function verifyProof(rootHash: string, path: string, proof: string[]): Promise<Buffer> {
-    // Note: crashing when the account is not used???
-    // Error: Key does not match with the proof one (extention|leaf)
+/**  Returns null if not existing. Returns the leaf value otherwise. */
+function verifyProof(rootHash: string, path: string, proof: string[]): Promise<Buffer> {
+  // Note: crashing when the account is not used???
+  // Error: Key does not match with the proof one (extention|leaf)
 
-    const rootHashBuff = Buffer.from(rootHash.replace("0x", ""), "hex")
-    const pathBuff = Buffer.from(path.replace("0x", ""), "hex")
-    const proofBuffers: Proof = proof.map(p => Buffer.from(p.replace("0x", ""), "hex"))
+  const rootHashBuff = Buffer.from(rootHash.replace("0x", ""), "hex")
+  const pathBuff = Buffer.from(path.replace("0x", ""), "hex")
+  const proofBuffers: Proof = proof.map(p => Buffer.from(p.replace("0x", ""), "hex"))
 
-    return BaseTrie.verifyProof(rootHashBuff, pathBuff, proofBuffers)
+  return BaseTrie.verifyProof(rootHashBuff, pathBuff, proofBuffers)
+}
+
+/** Provides the right flags to handle Ethereum headers */
+export function getEthHeaderParseOptions(blockNumber: number, networkId: string) {
+  switch (networkId) {
+    case "mainnet":
+    case "homestead":
+      networkId = "mainnet"
+      if (blockNumber < 12965000) return new EthCommon({ chain: networkId })
+    case "ropsten":
+      if (blockNumber < 10499401) return new EthCommon({ chain: networkId })
+    case "goerli":
+      if (blockNumber < 5062605) return new EthCommon({ chain: networkId })
+    case "rinkeby":
+      if (blockNumber < 8897988) return new EthCommon({ chain: networkId })
   }
 
-  function getEthHeaderParseOptions(blockNumber: number, networkId: string) {
-    switch (networkId) {
-      case "mainnet":
-      case "homestead":
-        networkId = "mainnet"
-        if (blockNumber < 12965000) return new EthCommon({ chain: networkId })
-      case "ropsten":
-        if (blockNumber < 10499401) return new EthCommon({ chain: networkId })
-      case "goerli":
-        if (blockNumber < 5062605) return new EthCommon({ chain: networkId })
-      case "rinkeby":
-        if (blockNumber < 8897988) return new EthCommon({ chain: networkId })
-    }
-
-    return new EthCommon({ chain: networkId, hardfork: "london" })
-  }
+  return new EthCommon({ chain: networkId, hardfork: "london" })
 }
