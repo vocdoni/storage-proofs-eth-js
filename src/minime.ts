@@ -118,72 +118,73 @@ export namespace MiniMeProof {
     }
     return null
   }
+}
 
-  // HELPERS
+///////////////////////////////////////////////////////////////////////////////
+// HELPERS
 
-  function getCheckPointAtPosition(tokenAddress: string, holderAddress: string, mapIndexSlot: number, position: number, provider: providers.Provider, blockHeight?: number | "latest") {
-    const mapSlot = EthProofs.getMapSlot(holderAddress, mapIndexSlot)
-    const vf = utils.keccak256(mapSlot)
+export function getCheckPointAtPosition(tokenAddress: string, holderAddress: string, mapIndexSlot: number, position: number, provider: providers.Provider, blockHeight?: number | "latest") {
+  const mapSlot = EthProofs.getMapSlot(holderAddress, mapIndexSlot)
+  const vf = utils.keccak256(mapSlot)
 
-    const offset = BigInt(position - 1)
-    const v = BigInt(vf) + offset
-    const arraySlot = v.toString(16) // no "0x"
+  const offset = BigInt(position - 1)
+  const v = BigInt(vf) + offset
+  const arraySlot = v.toString(16) // no "0x"
 
-    return provider.getStorageAt(tokenAddress, "0x" + arraySlot, blockHeight)
-      .then(value => parseCheckPointValue(value))
-      .then(({ balance, block }) => {
-        return {
-          balance,
-          block,
-          arraySlot
-        }
-      })
+  return provider.getStorageAt(tokenAddress, "0x" + arraySlot, blockHeight)
+    .then(value => parseCheckPointValue(value))
+    .then(({ balance, block }) => {
+      return {
+        balance,
+        block,
+        arraySlot
+      }
+    })
+}
+
+export function getArraySize(tokenAddress: string, holderAddress: string, position: number, provider: providers.Provider, blockHeight?: number | "latest"): Promise<number> {
+  const holderMapSlot = EthProofs.getMapSlot(holderAddress, position)
+
+  return provider.getStorageAt(tokenAddress, holderMapSlot, blockHeight)
+    .then(value => {
+      if (!value) throw new Error("Not found")
+
+      return Number(value) // hex value should be on the JS number range
+    })
+}
+
+export function parseCheckPointValue(hexValue: string) {
+  if (hexValue.startsWith("0x")) {
+    hexValue = hexValue.replace("0x", "")
+  }
+  while (hexValue.length < 64) {
+    hexValue = "0" + hexValue
   }
 
-  function getArraySize(tokenAddress: string, holderAddress: string, position: number, provider: providers.Provider, blockHeight?: number | "latest"): Promise<number> {
-    const holderMapSlot = EthProofs.getMapSlot(holderAddress, position)
+  // TODO: https://github.com/Giveth/minime/blob/master/contracts/MiniMeToken.sol#L49
+  //       https://github.com/vocdoni/storage-proofs-eth-go/blob/master/token/minime/helpers.go#L101
+  // TODO: Shouldn't it be reversed?
+  const hexBalance = hexValue.substr(0, 32) // [:16]
+  const hexBlock = hexValue.substr(32) // [16:]
 
-    return provider.getStorageAt(tokenAddress, holderMapSlot, blockHeight)
-      .then(value => {
-        if (!value) throw new Error("Not found")
+  return { balance: BigNumber.from("0x" + hexBalance), block: BigNumber.from("0x" + hexBlock) }
+}
 
-        return Number(value) // hex value should be on the JS number range
-      })
-  }
+// Checks the validity of a storage proof key for a specific token holder address
+// As MiniMe includes checkpoints and each one adds +1 to the key, there is a maximum
+// hardcoded tolerance of 2^16 positions for the key
+export function checkMiniMeKeys(hexKey1: string, hexKey2: string, holderAddress: string, mapIndexSlot: number) {
+  const mapSlot = EthProofs.getMapSlot(holderAddress, mapIndexSlot)
+  const vf = utils.keccak256(mapSlot)
+  const holderMapIndex = BigNumber.from(vf)
 
-  function parseCheckPointValue(hexValue: string) {
-    if (hexValue.startsWith("0x")) {
-      hexValue = hexValue.replace("0x", "")
-    }
-    while (hexValue.length < 64) {
-      hexValue = "0" + hexValue
-    }
+  const key1Index = BigNumber.from(hexKey1)
+  const key2Index = BigNumber.from(hexKey2)
 
-    // TODO: https://github.com/Giveth/minime/blob/master/contracts/MiniMeToken.sol#L49
-    //       https://github.com/vocdoni/storage-proofs-eth-go/blob/master/token/minime/helpers.go#L101
-    // TODO: Shouldn't it be reversed?
-    const hexBalance = hexValue.substr(0, 32) // [:16]
-    const hexBlock = hexValue.substr(32) // [16:]
+  if (!key1Index.add(1).eq(key2Index)) throw new Error("Keys are not consecutive")
 
-    return { balance: BigNumber.from("0x" + hexBalance), block: BigNumber.from("0x" + hexBlock) }
-  }
+  // We tolerate maximum 2^16 minime checkpoints
+  const offset = key1Index.sub(holderMapIndex)   // TODO: CHECK operation
 
-  // Checks the validity of a storage proof key for a specific token holder address
-  // As MiniMe includes checkpoints and each one adds +1 to the key, there is a maximum
-  // hardcoded tolerance of 2^16 positions for the key
-  function checkMiniMeKeys(hexKey1: string, hexKey2: string, holderAddress: string, mapIndexSlot: number) {
-    const mapSlot = EthProofs.getMapSlot(holderAddress, mapIndexSlot)
-    const vf = utils.keccak256(mapSlot)
-    const holderMapIndex = BigNumber.from(vf)
-
-    const key1Index = BigNumber.from(hexKey1)
-    const key2Index = BigNumber.from(hexKey2)
-
-    if (!key1Index.add(1).eq(key2Index)) throw new Error("Keys are not consecutive")
-
-    // We tolerate maximum 2^16 minime checkpoints
-    const offset = key1Index.sub(holderMapIndex)   // TODO: CHECK operation
-
-    if (offset.lt(0) || offset.gte(65536)) throw new Error("Key offset overflow")
-  }
+  if (offset.lt(0) || offset.gte(65536)) throw new Error("Key offset overflow")
 }
