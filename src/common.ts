@@ -56,7 +56,7 @@ export namespace EthProofs {
   }
 
   export function verifyStorageProof(storageRoot: string, storageProof: { key: string, proof: string[], value: string }): Promise<boolean> {
-    const path = utils.solidityKeccak256(["uint256"], [storageProof.key]).slice(2)
+    const path = utils.solidityKeccak256(["uint256"], ["0x" + storageProof.key]).slice(2)
 
     return verifyProof(storageRoot, path, storageProof.proof)
       .then(proofStorageValue => {

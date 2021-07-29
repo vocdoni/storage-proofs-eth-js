@@ -2,35 +2,76 @@ import "mocha" // using @types/mocha
 import { expect } from "chai"
 import { MiniMeProof, EthProofs } from "../../src/index"
 import { checkMiniMeKeys, getArraySize, getCheckPointAtPosition, parseCheckPointValue } from "../../src/minime"
+import { MINIME_ABI } from "../../src/abi/erc"
 import { provider } from "../util"
 import { addCompletionHooks } from "../mocha-hooks"
-import { BigNumber } from "ethers"
+import { BigNumber, Contract } from "ethers"
 
 addCompletionHooks()
 
 describe('MiniMe Storage Proofs', () => {
   let blockNumber: number
 
-  const TOKEN_ADDRESS = "....."
-  const BALANCE_MAPPING_SLOT = 2
+  const TOKEN_ADDRESS = "0x4d98039ab1bfd7b7a7d6f0629bebb7aefd36286e"
+  const TOKEN_HOLDERS = [
+    "0xa059fc472c7fac3a939664a215d6948d5c85f502",
+    "0x78ab05fb88d580b83ca4f90aca6056498b69747a",
+    "0xe5818d70a9b5aed2bfde4e41fbcb07dd80f8fc84",
+    "0xd7aa78bb243d5420717885af9703295f37e2dafd"
+  ]
+  const MAP_SLOT = 8
+
+  it("Should discover the checkpoints map slot", async () => {
+    const slot = await MiniMeProof.findMappingSlot(TOKEN_ADDRESS, TOKEN_HOLDERS[0], provider)
+
+    expect(typeof slot).to.eq("number")
+    expect(slot).to.be.gte(0)
+  }).timeout(10000)
 
   it('Should generate valid proofs', async () => {
+    const targetBlock = await provider.getBlockNumber()
 
+    for (let holderAddress of TOKEN_HOLDERS) {
+      const tokenInstance = new Contract(TOKEN_ADDRESS, MINIME_ABI, provider)
+      const targetBalance = await tokenInstance.balanceOf(holderAddress) as BigNumber
+      const proof = await MiniMeProof.get(TOKEN_ADDRESS, holderAddress, MAP_SLOT, provider, targetBlock)
+
+      expect(proof).to.be.ok
+      expect(Array.isArray(proof.accountProof)).to.eq(true)
+      expect(proof.balance).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(proof.codeHash).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(proof.nonce).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(proof.storageHash).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(typeof proof.storageProof).to.eq("object")
+
+      // verify
+      await MiniMeProof.verify(holderAddress, proof.storageHash, proof.storageProof, MAP_SLOT, targetBalance, targetBlock)
+    }
   }).timeout(10000)
 
   it('Should validate a proof', async () => {
     const proofs = [proof1, proof2]
 
     for (let proof of proofs) {
-      expect(() => {
-        return MiniMeProof.verify(proof.address, proof.root, proof.storageProofs,
-          proof.slot, BigNumber.from(proof.balance), proof.block)
+      expect(async () => {
+        try {
+          await MiniMeProof.verify(proof.address, proof.root, proof.storageProofs,
+            proof.slot, BigNumber.from(proof.balance), proof.block)
+          throw new Error("The call should have thrown an error but didn't")
+        } catch (err) {
+          throw err
+        }
       }).to.not.throw
 
-      expect(() => {
-        return MiniMeProof.verify(proof.address, proof.root, proof.storageProofs,
-          proof.slot, BigNumber.from(proof.balance).sub(1000000), proof.block)
-      }).to.not.throw
+      expect(async () => {
+        try {
+          await MiniMeProof.verify(proof.address, proof.root, proof.storageProofs,
+            proof.slot, BigNumber.from(proof.balance).sub(1000000), proof.block)
+          throw new Error("The call should have thrown an error but didn't")
+        } catch (err) {
+          throw err
+        }
+      }).to.throw
     }
   }).timeout(10000)
 
@@ -53,6 +94,14 @@ describe('MiniMe Storage Proofs', () => {
       expect(balance.toString()).to.eq(item.balance)
       expect(block.toString()).to.eq(item.block)
     }
+
+    // More
+
+    const { balance: balance1 } = parseCheckPointValue(proof1.storageProofs[0].value)
+    expect(balance1.toString()).to.eq(BigNumber.from(proof1.balance).toString())
+
+    const { balance: balance2 } = parseCheckPointValue(proof2.storageProofs[0].value)
+    expect(balance2.toString()).to.eq(BigNumber.from(proof2.balance).toString())
   })
 
   it("Should check that two proof keys are valid")
