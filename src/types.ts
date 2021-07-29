@@ -23,16 +23,25 @@ export type BlockData = {
     uncles: any[]
 }
 
-export type StorageProof = {
+export type EthereumProof = {
     accountProof: string[],
     balance: string,
     codeHash: string,
     nonce: string,
     storageHash: string,
-    storageProof: StorageResult[]
+    storageProof: StorageProof
 }
 
-export type StorageResult = { key: string, proof: string[], value: string }
+export type StorageProof = StorageProofItem[]
+
+export type StorageProofItem = {
+    /** Non-0x prefixed hex string of the key that identifies the value stored on-chain */
+    key: string,
+    /** 0x prefixed hex strings of the proof */
+    proof: string[],
+    /** 0x prefixed hex string of the value stored on-chain */
+    value: string
+}
 
 // JSON RPC Response types
 

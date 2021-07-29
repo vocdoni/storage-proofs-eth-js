@@ -1,45 +1,58 @@
 import { EthProofs, EthProvider } from "./common"
 import { Contract, BigNumber, providers } from "ethers"
-import { StorageProof } from "./types"
+import { EthereumProof } from "./types"
 import { ERC20_ABI } from "./abi/erc"
 
 const MAX_POSITION_ATTEMPTS = 50
 
 export namespace ERC20Proof {
     /** Fetches the storage proof of the given keys within the given contract */
-    export async function get(contractAddress: string, storageKeys: string[] = [], blockNumber: number | "latest", provider: EthProvider.Providerish) {
-        const targetBlockNumber = typeof blockNumber == "number" ?
-            blockNumber : await provider.getBlockNumber()
+    export function get(contractAddress: string, storageKey: string, blockNumber: number | "latest", provider: EthProvider.Providerish) {
+        const prom = typeof blockNumber == "number" ?
+            Promise.resolve(blockNumber) : provider.getBlockNumber()
 
-        const proof = await EthProvider.fetchStorageProof(contractAddress, storageKeys, targetBlockNumber, provider)
-        const block = await EthProvider.fetchBlock(targetBlockNumber, provider)
+        return prom.then(targetBlockNumber =>
+            EthProvider.fetchStorageProof(contractAddress, [storageKey], targetBlockNumber, provider)
+        )
+    }
 
-        const network = await provider.getNetwork()
-        const blockHeaderRLP = EthProofs.getHeaderRlp(block, network.name)
-        const accountProofRLP = EthProofs.encodeProofRlp(proof.accountProof)
-        const storageProofsRLP = proof.storageProof.map(p => EthProofs.encodeProofRlp(p.proof))
+    /** Fetches the account and storage proofs, along with the block header data of the given keys within the given contract */
+    export function getFull(contractAddress: string, storageKey: string, blockNumber: number | "latest", provider: EthProvider.Providerish) {
+        const prom = typeof blockNumber == "number" ?
+            Promise.resolve(blockNumber) : provider.getBlockNumber()
 
-        return {
-            proof,
-            block,
-            blockHeaderRLP,
-            accountProofRLP,
-            storageProofsRLP
-        }
+        return prom.then(targetBlockNumber => {
+            return Promise.all([
+                EthProvider.fetchStorageProof(contractAddress, [storageKey], targetBlockNumber, provider),
+                EthProvider.fetchBlock(targetBlockNumber, provider),
+                provider.getNetwork(),
+            ])
+        }).then(([proof, block, network]) => {
+            const blockHeaderRLP = EthProofs.getHeaderRlp(block, network.name)
+            const accountProofRLP = EthProofs.encodeProofRlp(proof.accountProof)
+            const storageProofsRLP = proof.storageProof.map(p => EthProofs.encodeProofRlp(p.proof))
+
+            return {
+                proof,
+                block,
+                blockHeaderRLP,
+                accountProofRLP,
+                storageProofsRLP
+            }
+        })
     }
 
     /** Does nothing if the given proof conforms to the given block stateRoot and contract address.
      * Throws an error otherwise.
      */
-    export function verify(stateRoot: string, contractAddress: string, proof: StorageProof) {
-        // Verify account proof locally
+    export function verify(stateRoot: string, contractAddress: string, proof: EthereumProof) {
         return EthProofs.verifyAccountProof(stateRoot, contractAddress, proof)
             .then(isAccountProofValid => {
                 if (!isAccountProofValid) {
                     throw new Error("The account proof is not valid")
                 }
 
-                // Verify storage proofs locally
+                // Verify the storage proof
                 return Promise.all(proof.storageProof.map(
                     storageProof => EthProofs.verifyStorageProof(proof.storageHash, storageProof)
                 ))
@@ -58,7 +71,7 @@ export namespace ERC20Proof {
      * Attempts to find the index at which the holder balances are stored within the token contract.
      * If the position cannot be found among the 50 first ones, `null` is returned.
      */
-    export async function findBalanceMappingPosition(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
+    export async function findMapSlot(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
         const blockNumber = await provider.getBlockNumber()
         const tokenInstance = new Contract(tokenAddress, ERC20_ABI, provider)
         const balance = await tokenInstance.balanceOf(holderAddress) as BigNumber
@@ -68,7 +81,7 @@ export namespace ERC20Proof {
             try {
                 const holderBalanceSlot = EthProofs.getMapSlot(holderAddress, pos)
 
-                const result = await get(tokenAddress, [holderBalanceSlot], blockNumber, provider)
+                const result = await getFull(tokenAddress, holderBalanceSlot, blockNumber, provider)
                 if (result == null || !result.proof) continue
 
                 // Throws if not valid
