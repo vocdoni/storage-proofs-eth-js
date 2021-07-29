@@ -19,7 +19,7 @@ export namespace EthProvider {
     return provider
   }
 
-  export function fetchStorageProof(contractAddress: string, storageKeys: string[], blockNumber: number, provider: Providerish): Promise<EthereumProof> {
+  export function fetchProof(contractAddress: string, storageKeys: string[], blockNumber: number, provider: Providerish): Promise<EthereumProof> {
     const hexBlockNumber = utils.hexValue(blockNumber)
 
     return provider.send("eth_getProof", [contractAddress, storageKeys, hexBlockNumber])
@@ -27,6 +27,26 @@ export namespace EthProvider {
         if (!response) throw new Error("Block not found")
         return response
       })
+  }
+
+  /** Given an Ethereum proof, returns the account proof and the RLP encoded headers and proofs */
+  export function fetchFullProof(ethereumProof: EthereumProof, blockNumber: number, provider: Providerish) {
+    return Promise.all([
+      fetchBlock(blockNumber, provider),
+      provider.getNetwork(),
+    ]).then(([block, network]) => {
+      const blockHeaderRLP = EthProof.getHeaderRlp(block, network.name)
+      const accountProofRLP = EthProof.encodeProofRlp(ethereumProof.accountProof)
+      const storageProofsRLP = ethereumProof.storageProof.map(p => EthProof.encodeProofRlp(p.proof))
+
+      return {
+        proof: ethereumProof,
+        block,
+        blockHeaderRLP,
+        accountProofRLP,
+        storageProofsRLP
+      }
+    })
   }
 
   export function fetchBlock(blockNumber: number, provider: Providerish): Promise<BlockData> {
@@ -42,7 +62,7 @@ export namespace EthProvider {
 
 // PROOF MANAGEMENT
 
-export namespace EthProofs {
+export namespace EthProof {
   export function verifyAccountProof(stateRoot: string, contractAddress: string, proof: EthereumProof): Promise<boolean> {
     const path = utils.keccak256(contractAddress).slice(2)
 
