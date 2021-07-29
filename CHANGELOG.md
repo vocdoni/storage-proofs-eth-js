@@ -2,12 +2,16 @@
 
 ## v0.5.0
 - Adding `MiniMeProof`
+- [Breaking] `StorageProof` (type) is now `EthereumProof`
 - [Breaking] Restructuring `Erc20Proover` into `ERC20Proof`
   - Not a class anymore. Now it's a namespace (stateless).
-  - `ERC20Prover.getProof()` is now called `ERC20Proof.get()`
+  - `ERC20Proover.getProof()` is now called `ERC20Proof.getFull()`
+  - Adding `ERC20Proof.get()` for a lighter version
   - `provider` is now a parameter of `ERC20Proof.get`
-  - `ERC20Prover.getHolderBalanceSlot` is now `EthProofs.getMapSlot`
-- Proof generation and verification are now completely independent
+  - `ERC20Proover.getHolderBalanceSlot` is now `EthProofs.getMapSlot`
+  - `Erc20Proover.findBalanceMappingPosition` is now `Erc20Proover.findMapSlot`
+- Exporting `StorageProof` (new type) and `StorageProofItem` (type)
+- Proof generation and verification are now independent
   - Generating proofs no longer accepts `verify` as a parameter
 
 ## v0.4.0

@@ -1,5 +1,5 @@
 import { providers, utils } from "ethers"
-import { BlockData, StorageProof } from "./types"
+import { BlockData, EthereumProof } from "./types"
 import blockHeaderFromRpc from "@ethereumjs/block/dist/header-from-rpc"
 import EthCommon from "@ethereumjs/common"
 import { BaseTrie } from "merkle-patricia-tree"
@@ -19,11 +19,11 @@ export namespace EthProvider {
     return provider
   }
 
-  export function fetchStorageProof(contractAddress: string, storageKeys: string[], blockNumber: number, provider: Providerish): Promise<StorageProof> {
+  export function fetchStorageProof(contractAddress: string, storageKeys: string[], blockNumber: number, provider: Providerish): Promise<EthereumProof> {
     const hexBlockNumber = utils.hexValue(blockNumber)
 
     return provider.send("eth_getProof", [contractAddress, storageKeys, hexBlockNumber])
-      .then((response: StorageProof) => {
+      .then((response: EthereumProof) => {
         if (!response) throw new Error("Block not found")
         return response
       })
@@ -43,7 +43,7 @@ export namespace EthProvider {
 // PROOF MANAGEMENT
 
 export namespace EthProofs {
-  export function verifyAccountProof(stateRoot: string, contractAddress: string, proof: StorageProof): Promise<boolean> {
+  export function verifyAccountProof(stateRoot: string, contractAddress: string, proof: EthereumProof): Promise<boolean> {
     const path = utils.keccak256(contractAddress).slice(2)
 
     return verifyProof(stateRoot, path, proof.accountProof)

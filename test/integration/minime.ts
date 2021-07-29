@@ -22,7 +22,7 @@ describe('MiniMe Storage Proofs', () => {
   const MAP_SLOT = 8
 
   it("Should discover the checkpoints map slot", async () => {
-    const slot = await MiniMeProof.findMappingSlot(TOKEN_ADDRESS, TOKEN_HOLDERS[0], provider)
+    const slot = await MiniMeProof.findMapSlot(TOKEN_ADDRESS, TOKEN_HOLDERS[0], provider)
 
     expect(typeof slot).to.eq("number")
     expect(slot).to.be.gte(0)
@@ -42,7 +42,8 @@ describe('MiniMe Storage Proofs', () => {
       expect(proof.codeHash).to.match(/^0x[0-9a-fA-F]+$/)
       expect(proof.nonce).to.match(/^0x[0-9a-fA-F]+$/)
       expect(proof.storageHash).to.match(/^0x[0-9a-fA-F]+$/)
-      expect(typeof proof.storageProof).to.eq("object")
+      expect(Array.isArray(proof.storageProof)).to.eq(true)
+      expect(proof.storageProof.length).to.eq(2)
 
       // verify
       await MiniMeProof.verify(holderAddress, proof.storageHash, proof.storageProof, MAP_SLOT, targetBalance, targetBlock)

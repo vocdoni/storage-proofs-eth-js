@@ -1,7 +1,7 @@
 import { EthProofs, EthProvider } from "./common"
 import { Contract, BigNumber, providers, utils } from "ethers"
 import { MINIME_ABI } from "./abi/erc"
-import { StorageResult } from "./types"
+import { StorageProof } from "./types"
 
 export namespace MiniMeProof {
   const MAX_POSITION_ATTEMPTS = 20
@@ -33,7 +33,7 @@ export namespace MiniMeProof {
         if (checkPointBlock.gte(targetBlock)) {
           // If minime checkpoint block -1 is equal or greather than the block we
           // are looking for, that's the one we need (the previous and the current)
-          const { balance, block, arraySlot: currHexSlot } = await getCheckPointAtPosition(contractAddress, holderAddress, slot, i - 1, provider, targetBlock.toNumber())
+          const { balance, block, arraySlot: currHexSlot } = await getCheckPointAtPosition(contractAddress, holderAddress, slot, i, provider, targetBlock.toNumber())
 
           if (balance.gt(0)) throw new Error("Proof of nil has a balance value")
           else if (block.gt(0)) throw new Error("Proof of nil has a block value")
@@ -50,13 +50,13 @@ export namespace MiniMeProof {
     return EthProvider.fetchStorageProof(contractAddress, hexKeys, targetBlock.toNumber(), provider)
   }
 
-  export async function verify(holderAddress: string, storageRoot: string, proofs: StorageResult[], mapIndexSlot: number,
+  export async function verify(holderAddress: string, storageRoot: string, proof: StorageProof, mapIndexSlot: number,
     targetBalance: BigNumber, targetBlock: number) {
     // Sanity checks
-    if (proofs.length != 2) throw new Error("Incorrect amount of storage proofs")
+    if (proof.length != 2) throw new Error("Incorrect amount of storage proofs")
     else if (!targetBalance || typeof targetBlock != "number") throw new Error("Invalid parameters")
 
-    proofs.forEach((proof, idx) => {
+    proof.forEach((proof, idx) => {
       if (idx == 0 && !proof.value) throw new Error("Empty value")
 
       const k = utils.hexZeroPad("0x" + proof.key, 32).replace("0x", "")
@@ -67,10 +67,10 @@ export namespace MiniMeProof {
     })
 
     // Check the proof keys (should match with the holder)
-    checkMiniMeKeys(proofs[0].key, proofs[1].key, holderAddress, mapIndexSlot)
+    checkMiniMeKeys(proof[0].key, proof[1].key, holderAddress, mapIndexSlot)
 
     // Extract balance and block from the minime proof
-    const { block: proof0Block, balance: proof0Balance } = parseCheckPointValue(proofs[0].value)
+    const { block: proof0Block, balance: proof0Balance } = parseCheckPointValue(proof[0].value)
     if (!proof0Balance.eq(targetBalance)) throw new Error("Proof balance does not match")
 
     // Verify that `proof0Block <= targetBlock < proof1Block`
@@ -78,24 +78,24 @@ export namespace MiniMeProof {
 
     // Check if the proof1 is a proof of non existence (so proof0 is the last checkpoint).
     // If not the last, then check the target block is
-    if (proofs[1].value && !BigNumber.from(proofs[1].value).eq(0)) {
-      const { block: proof1Block } = parseCheckPointValue(proofs[1].value)
+    if (proof[1].value && !BigNumber.from(proof[1].value).eq(0)) {
+      const { block: proof1Block } = parseCheckPointValue(proof[1].value)
 
       if (!proof0Block.lt(proof1Block)) throw new Error("Proof 0 block should be behind proof 1 block")
       else if (!BigNumber.from(targetBlock).lt(proof1Block)) throw new Error("The target block should be behind proof 1 block")
     }
 
-    for (let i = 0; i < proofs.length; i++) {
-      const valid = await EthProofs.verifyStorageProof(storageRoot, proofs[i])
+    for (let i = 0; i < proof.length; i++) {
+      const valid = await EthProofs.verifyStorageProof(storageRoot, proof[i])
       if (!valid) throw new Error("Proof " + i + " not valid")
     }
   }
 
   /**
-   * findMappingSlot attempts to find the map index slot for the minime balances.
+   * findMapSlot attempts to find the map index slot for the minime balances.
    * If the position cannot be found, `null` is returned.
    */
-  export async function findMappingSlot(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
+  export async function findMapSlot(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
     const blockNumber = await provider.getBlockNumber()
     const tokenInstance = new Contract(tokenAddress, MINIME_ABI, provider)
     const balance = await tokenInstance.balanceOf(holderAddress) as BigNumber
