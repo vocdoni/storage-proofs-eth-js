@@ -1,6 +1,6 @@
 import "mocha" // using @types/mocha
 import { expect } from "chai"
-import { EthProofs } from "../../src/index"
+import { EthProof } from "../../src/index"
 import { getEthHeaderParseOptions } from "../../src/common"
 import { addCompletionHooks } from "../mocha-hooks"
 
@@ -21,7 +21,7 @@ describe('Ethereum Storage Proofs', () => {
     ]
 
     for (let item of data) {
-      expect(EthProofs.getMapSlot(item.addr, item.idx)).to.eq(item.output)
+      expect(EthProof.getMapSlot(item.addr, item.idx)).to.eq(item.output)
     }
   })
 
@@ -40,14 +40,14 @@ describe('Ethereum Storage Proofs', () => {
     ]
 
     for (let item of data) {
-      expect(EthProofs.getArraySlot(item.idx)).to.eq(item.output)
+      expect(EthProof.getArraySlot(item.idx)).to.eq(item.output)
     }
   })
 
   it('Should verify a storage proof', async () => {
     const storageRoot = "0x67112e931a0e90f399d3b9b87c217df4410731395ef90649692199c676b62fb0"
     const storageProof = {
-      "key": "0xbb68a47d5da9c117ae8a139bc647ecaad9137bf7b80cc87b8140d70ce9ff7b69",
+      "key": "bb68a47d5da9c117ae8a139bc647ecaad9137bf7b80cc87b8140d70ce9ff7b69",
       "value": "0x1312d00",
       "proof": [
         "0xf90211a00c12386d091b85c4e30df2532d45e466a03a03a4ff491aaef3ccb5cd149cd57da04dbb408692f8d72fb508efb8a3ed80a4e6b45c2bb5760cf8ac9a8cdbdc1a952fa069f41829e016a10c661c89930e2333d89a2a4e3a7bad40ffe5c976388d2a9c5ea079f8d9fc1b7be70e788668480ea41192e5349ab47d2fcfb3d5d9b8ba4eac5248a03d450371a557dcd23a489a32b3a8c3ad53554e7583df4288b16551b07835ced5a03db7d966bfe47a930de10bae752494af0552fcc033022741bea4d84ea298b110a0a49b1b032b3bf1804a0f000b74ffb35a6b0ea5995a1d1c7174e8931bac6ec409a0bc91c9c620f574c33ec91dcceab418b0ba52350b22d9bde76a96244e115ea44aa0bd4ca3b952b6c8fa420844c88f06b888352b42ec2c9779ad27a297f32af96369a02bcd5dfffa276ad3254fbf8be2f042e502da17fdef140fe978b83422ec5b8d39a014ac089db39aac280d81b1318352bc989a5109f8c3bfe67e0cda31429efd6981a0046147b0e19c7a5eb4bfcfe1c6631cac75d994f785aa320106ea8aee1eeb5514a0458b5b0b6e9ec7ab9a1df0003c752bb8122f94e50f76b673e1e445f755664eb0a067c772e3976bba2209678e0f7b6cde45679aea931808cb036ada7af01c5e2bc4a03becb72d6dbcc85048a04e4d20707c7c37223ddb0de61bf0ef083bcc85a9ebcea0e4ea0d2bb338e6d57c637d7cb697500ea6a1a34c60fe8001b12f2a234d856f9480",
@@ -60,7 +60,7 @@ describe('Ethereum Storage Proofs', () => {
       ]
     }
 
-    const valid = await EthProofs.verifyStorageProof(storageRoot, storageProof)
+    const valid = await EthProof.verifyStorageProof(storageRoot, storageProof)
 
     expect(valid).to.eq(true)
   })
@@ -85,7 +85,7 @@ describe('Ethereum Storage Proofs', () => {
       storageProof: []
     }
 
-    expect(() => EthProofs.verifyAccountProof(proof.storageHash, proof.address, proof)).to.not.throw
+    expect(() => EthProof.verifyAccountProof(proof.storageHash, proof.address, proof)).to.not.throw
   })
   it("Should RLP encode an account proof")
   it("Should RLP encode a storage proof")

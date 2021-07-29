@@ -1,6 +1,6 @@
 import "mocha" // using @types/mocha
 import { expect } from "chai"
-import { ERC20Proof, EthProofs } from "../../src/index"
+import { ERC20Proof } from "../../src/index"
 import { provider } from "../util"
 import { addCompletionHooks } from "../mocha-hooks"
 
@@ -16,8 +16,7 @@ describe('ERC20 Storage Proofs', () => {
         const holderAddr = "0x1062a747393198f70f71ec65a582423dba7e5ab3"
 
         blockNumber = await provider.getBlockNumber()
-        const balanceSlot = EthProofs.getMapSlot(holderAddr, BALANCE_MAPPING_SLOT)
-        const result = await ERC20Proof.get(TOKEN_ADDRESS, [balanceSlot], blockNumber, provider)
+        const result = await ERC20Proof.getFull(TOKEN_ADDRESS, holderAddr, BALANCE_MAPPING_SLOT, blockNumber, provider)
 
         expect(result.proof).to.be.ok
         expect(Array.isArray(result.proof.accountProof)).to.eq(true)
@@ -43,9 +42,7 @@ describe('ERC20 Storage Proofs', () => {
     it('Should proof that a value does exist', async () => {
         const holderAddress = "0x1062a747393198f70f71ec65a582423dba7e5ab3"
 
-        const balanceSlot = EthProofs.getMapSlot(holderAddress, BALANCE_MAPPING_SLOT)
-        const storageKeys = [balanceSlot]
-        const { block, proof } = await ERC20Proof.get(TOKEN_ADDRESS, storageKeys, "latest", provider)
+        const { block, proof } = await ERC20Proof.getFull(TOKEN_ADDRESS, holderAddress, BALANCE_MAPPING_SLOT, "latest", provider)
         expect(proof.storageProof[0].value).to.not.eq("0x0")
 
         // verify
@@ -56,13 +53,11 @@ describe('ERC20 Storage Proofs', () => {
     }).timeout(10000)
 
     it('Should verify a proof of non-existence', async () => {
-        const holderAddress = "0x0010000000000000000000000000000000000000"
         const tokenAddress = "0x6b175474e89094c44da98b954eedeac495271d0f"
+        const holderAddress = "0x0010000000000000000000000000000000000000"
+        const unrealBalanceMappingPosition = 100
 
-        const balanceSlot = EthProofs.getMapSlot(holderAddress, 100)
-        const storageKeys = [balanceSlot]
-
-        const { proof, block } = await ERC20Proof.get(tokenAddress, storageKeys, "latest", provider)
+        const { proof, block } = await ERC20Proof.getFull(tokenAddress, holderAddress, unrealBalanceMappingPosition, "latest", provider)
         expect(proof.storageProof[0].value).to.eq("0x0")
 
         // verify
@@ -77,11 +72,8 @@ describe('ERC20 Storage Proofs', () => {
         const tokenAddress = "0x6b175474e89094c44da98b954eedeac495271d0f"
         const unrealBalanceMappingPosition = 100
 
-        const balanceSlot = EthProofs.getMapSlot(holderAddress, unrealBalanceMappingPosition)
-        const storageKeys = [balanceSlot]
-
         {
-            const { proof, block } = await ERC20Proof.get(tokenAddress, storageKeys, "latest", provider)
+            const { proof, block } = await ERC20Proof.getFull(tokenAddress, holderAddress, unrealBalanceMappingPosition, "latest", provider)
             expect(proof.storageProof[0].value).to.eq("0x0")
 
             // Corrupt the proof
@@ -98,7 +90,7 @@ describe('ERC20 Storage Proofs', () => {
         // 2
 
         {
-            const { proof, block } = await ERC20Proof.get(tokenAddress, storageKeys, "latest", provider)
+            const { proof, block } = await ERC20Proof.getFull(tokenAddress, holderAddress, BALANCE_MAPPING_SLOT, "latest", provider)
             expect(proof.storageProof[0].value).to.eq("0x0")
 
             // Corrupt the proof
@@ -115,7 +107,7 @@ describe('ERC20 Storage Proofs', () => {
         // 3
 
         {
-            const { proof, block } = await ERC20Proof.get(tokenAddress, storageKeys, "latest", provider)
+            const { proof, block } = await ERC20Proof.getFull(tokenAddress, holderAddress, BALANCE_MAPPING_SLOT, "latest", provider)
             expect(proof.storageProof[0].value).to.eq("0x0")
 
             // Corrupt the proof

@@ -1,6 +1,6 @@
 import "mocha" // using @types/mocha
 import { expect } from "chai"
-import { MiniMeProof, EthProofs } from "../../src/index"
+import { MiniMeProof, EthProof } from "../../src/index"
 import { checkMiniMeKeys, getArraySize, getCheckPointAtPosition, parseCheckPointValue } from "../../src/minime"
 import { MINIME_ABI } from "../../src/abi/erc"
 import { provider } from "../util"
@@ -10,8 +10,6 @@ import { BigNumber, Contract } from "ethers"
 addCompletionHooks()
 
 describe('MiniMe Storage Proofs', () => {
-  let blockNumber: number
-
   const TOKEN_ADDRESS = "0x4d98039ab1bfd7b7a7d6f0629bebb7aefd36286e"
   const TOKEN_HOLDERS = [
     "0xa059fc472c7fac3a939664a215d6948d5c85f502",
@@ -19,7 +17,7 @@ describe('MiniMe Storage Proofs', () => {
     "0xe5818d70a9b5aed2bfde4e41fbcb07dd80f8fc84",
     "0xd7aa78bb243d5420717885af9703295f37e2dafd"
   ]
-  const MAP_SLOT = 8
+  const MAP_INDEX_SLOT = 8
 
   it("Should discover the checkpoints map slot", async () => {
     const slot = await MiniMeProof.findMapSlot(TOKEN_ADDRESS, TOKEN_HOLDERS[0], provider)
@@ -28,13 +26,13 @@ describe('MiniMe Storage Proofs', () => {
     expect(slot).to.be.gte(0)
   }).timeout(10000)
 
-  it('Should generate valid proofs', async () => {
+  it('Should generate valid (simple) proofs', async () => {
     const targetBlock = await provider.getBlockNumber()
 
     for (let holderAddress of TOKEN_HOLDERS) {
       const tokenInstance = new Contract(TOKEN_ADDRESS, MINIME_ABI, provider)
       const targetBalance = await tokenInstance.balanceOf(holderAddress) as BigNumber
-      const proof = await MiniMeProof.get(TOKEN_ADDRESS, holderAddress, MAP_SLOT, provider, targetBlock)
+      const proof = await MiniMeProof.get(TOKEN_ADDRESS, holderAddress, MAP_INDEX_SLOT, provider, targetBlock)
 
       expect(proof).to.be.ok
       expect(Array.isArray(proof.accountProof)).to.eq(true)
@@ -46,7 +44,33 @@ describe('MiniMe Storage Proofs', () => {
       expect(proof.storageProof.length).to.eq(2)
 
       // verify
-      await MiniMeProof.verify(holderAddress, proof.storageHash, proof.storageProof, MAP_SLOT, targetBalance, targetBlock)
+      await MiniMeProof.verify(holderAddress, proof.storageHash, proof.storageProof, MAP_INDEX_SLOT, targetBalance, targetBlock)
+    }
+  }).timeout(10000)
+
+  it('Should generate valid (full) proofs', async () => {
+    const targetBlock = await provider.getBlockNumber()
+
+    for (let holderAddress of TOKEN_HOLDERS) {
+      const tokenInstance = new Contract(TOKEN_ADDRESS, MINIME_ABI, provider)
+      const targetBalance = await tokenInstance.balanceOf(holderAddress) as BigNumber
+      const result = await MiniMeProof.getFull(TOKEN_ADDRESS, holderAddress, MAP_INDEX_SLOT, provider, targetBlock)
+
+      expect(result.proof).to.be.ok
+      expect(Array.isArray(result.proof.accountProof)).to.eq(true)
+      expect(result.proof.balance).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(result.proof.codeHash).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(result.proof.nonce).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(result.proof.storageHash).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(typeof result.proof.storageProof).to.eq("object")
+      expect(result.blockHeaderRLP).to.match(/^0x[0-9a-fA-F]+$/)
+      expect(result.accountProofRLP).to.match(/^0x[0-9a-fA-F]+$/)
+      result.storageProofsRLP.forEach(proof => {
+        expect(proof).to.match(/^0x[0-9a-fA-F]+$/)
+      })
+
+      // verify
+      await MiniMeProof.verify(holderAddress, result.proof.storageHash, result.proof.storageProof, MAP_INDEX_SLOT, targetBalance, targetBlock)
     }
   }).timeout(10000)
 
@@ -76,13 +100,14 @@ describe('MiniMe Storage Proofs', () => {
     }
   }).timeout(10000)
 
-  it('Should verify a proof of non-existence').timeout(10000)
+  it('Should fail the verification if some value has been tampered').timeout(10000)
 
-  it('Should fail verifying if some value has been tampered').timeout(10000)
-
-  it("Should get the size of the checkpoints array")
-
-  it("Should get the checkpoint at a certain position")
+  it("Should get the size of the checkpoints array", async () => {
+    for (let i = 0; i < TOKEN_HOLDERS.length; i++) {
+      const size = await getArraySize(TOKEN_ADDRESS, TOKEN_HOLDERS[i], MAP_INDEX_SLOT, provider)
+      expect(size).to.be.gt(0)
+    }
+  })
 
   it("Should parse the checkpoint", () => {
     const items = [

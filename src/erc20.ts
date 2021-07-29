@@ -1,4 +1,4 @@
-import { EthProofs, EthProvider } from "./common"
+import { EthProof, EthProvider } from "./common"
 import { Contract, BigNumber, providers } from "ethers"
 import { EthereumProof } from "./types"
 import { ERC20_ABI } from "./abi/erc"
@@ -7,38 +7,25 @@ const MAX_POSITION_ATTEMPTS = 50
 
 export namespace ERC20Proof {
     /** Fetches the storage proof of the given keys within the given contract */
-    export function get(contractAddress: string, storageKey: string, blockNumber: number | "latest", provider: EthProvider.Providerish) {
+    export function get(contractAddress: string, holderAddress: string, balanceMappingSlot: number, blockNumber: number | "latest", provider: EthProvider.Providerish) {
+        const balanceSlot = EthProof.getMapSlot(holderAddress, balanceMappingSlot)
+
         const prom = typeof blockNumber == "number" ?
             Promise.resolve(blockNumber) : provider.getBlockNumber()
 
         return prom.then(targetBlockNumber =>
-            EthProvider.fetchStorageProof(contractAddress, [storageKey], targetBlockNumber, provider)
+            EthProvider.fetchProof(contractAddress, [balanceSlot], targetBlockNumber, provider)
         )
     }
 
     /** Fetches the account and storage proofs, along with the block header data of the given keys within the given contract */
-    export function getFull(contractAddress: string, storageKey: string, blockNumber: number | "latest", provider: EthProvider.Providerish) {
+    export function getFull(contractAddress: string, holderAddress: string, balanceMappingSlot: number, blockNumber: number | "latest", provider: EthProvider.Providerish) {
         const prom = typeof blockNumber == "number" ?
             Promise.resolve(blockNumber) : provider.getBlockNumber()
 
         return prom.then(targetBlockNumber => {
-            return Promise.all([
-                EthProvider.fetchStorageProof(contractAddress, [storageKey], targetBlockNumber, provider),
-                EthProvider.fetchBlock(targetBlockNumber, provider),
-                provider.getNetwork(),
-            ])
-        }).then(([proof, block, network]) => {
-            const blockHeaderRLP = EthProofs.getHeaderRlp(block, network.name)
-            const accountProofRLP = EthProofs.encodeProofRlp(proof.accountProof)
-            const storageProofsRLP = proof.storageProof.map(p => EthProofs.encodeProofRlp(p.proof))
-
-            return {
-                proof,
-                block,
-                blockHeaderRLP,
-                accountProofRLP,
-                storageProofsRLP
-            }
+            return get(contractAddress, holderAddress, balanceMappingSlot, targetBlockNumber, provider)
+                .then(proof => EthProvider.fetchFullProof(proof, targetBlockNumber, provider))
         })
     }
 
@@ -46,7 +33,7 @@ export namespace ERC20Proof {
      * Throws an error otherwise.
      */
     export function verify(stateRoot: string, contractAddress: string, proof: EthereumProof) {
-        return EthProofs.verifyAccountProof(stateRoot, contractAddress, proof)
+        return EthProof.verifyAccountProof(stateRoot, contractAddress, proof)
             .then(isAccountProofValid => {
                 if (!isAccountProofValid) {
                     throw new Error("The account proof is not valid")
@@ -54,7 +41,7 @@ export namespace ERC20Proof {
 
                 // Verify the storage proof
                 return Promise.all(proof.storageProof.map(
-                    storageProof => EthProofs.verifyStorageProof(proof.storageHash, storageProof)
+                    storageProof => EthProof.verifyStorageProof(proof.storageHash, storageProof)
                 ))
             })
             .then(storageProofs => {
@@ -79,15 +66,11 @@ export namespace ERC20Proof {
 
         for (let pos = 0; pos < MAX_POSITION_ATTEMPTS; pos++) {
             try {
-                const holderBalanceSlot = EthProofs.getMapSlot(holderAddress, pos)
+                const holderBalanceSlot = EthProof.getMapSlot(holderAddress, pos)
 
-                const result = await getFull(tokenAddress, holderBalanceSlot, blockNumber, provider)
-                if (result == null || !result.proof) continue
+                const value = await provider.getStorageAt(tokenAddress, "0x" + holderBalanceSlot, blockNumber)
 
-                // Throws if not valid
-                await verify(result.block.stateRoot, tokenAddress, result.proof)
-
-                const onChainBalance = BigNumber.from(result.proof.storageProof[0].value)
+                const onChainBalance = BigNumber.from(value)
                 if (!onChainBalance.eq(balance)) continue
 
                 // Found

@@ -1,4 +1,4 @@
-import { EthProofs, EthProvider } from "./common"
+import { EthProof, EthProvider } from "./common"
 import { Contract, BigNumber, providers, utils } from "ethers"
 import { MINIME_ABI } from "./abi/erc"
 import { StorageProof } from "./types"
@@ -27,6 +27,7 @@ export namespace MiniMeProof {
     else {
       // TODO: Turn into a binary search
 
+      // Find the checkpoint position
       for (let i = checkPointsSize - 1; i > 0; i--) {
         const { block: checkPointBlock, arraySlot: prevHexSlot } = await getCheckPointAtPosition(contractAddress, holderAddress, slot, i - 1, provider, targetBlock.toNumber())
 
@@ -47,7 +48,18 @@ export namespace MiniMeProof {
 
     if (hexKeys.length == 0) throw new Error("Check point not found")
 
-    return EthProvider.fetchStorageProof(contractAddress, hexKeys, targetBlock.toNumber(), provider)
+    return EthProvider.fetchProof(contractAddress, hexKeys, targetBlock.toNumber(), provider)
+  }
+
+  /** Fetches the account and storage proofs, along with the block header data of the given keys within the given contract */
+  export function getFull(contractAddress: string, holderAddress: string, slot: number, provider: EthProvider.Providerish, blockNumber: number | "latest" = "latest") {
+    const prom = typeof blockNumber == "number" ?
+      Promise.resolve(blockNumber) : provider.getBlockNumber()
+
+    return prom.then(targetBlockNumber => {
+      return get(contractAddress, holderAddress, slot, provider, targetBlockNumber)
+        .then(proof => EthProvider.fetchFullProof(proof, targetBlockNumber, provider))
+    })
   }
 
   export async function verify(holderAddress: string, storageRoot: string, proof: StorageProof, mapIndexSlot: number,
@@ -86,7 +98,7 @@ export namespace MiniMeProof {
     }
 
     for (let i = 0; i < proof.length; i++) {
-      const valid = await EthProofs.verifyStorageProof(storageRoot, proof[i])
+      const valid = await EthProof.verifyStorageProof(storageRoot, proof[i])
       if (!valid) throw new Error("Proof " + i + " not valid")
     }
   }
@@ -98,8 +110,8 @@ export namespace MiniMeProof {
   export async function findMapSlot(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
     const blockNumber = await provider.getBlockNumber()
     const tokenInstance = new Contract(tokenAddress, MINIME_ABI, provider)
-    const balance = await tokenInstance.balanceOf(holderAddress) as BigNumber
-    if (balance.isZero()) throw new Error("The holder has no balance")
+    const targetBalance = await tokenInstance.balanceOf(holderAddress) as BigNumber
+    if (targetBalance.isZero()) throw new Error("The holder has no balance")
 
     for (let idx = 0; idx < MAX_POSITION_ATTEMPTS; idx++) {
       try {
@@ -108,10 +120,9 @@ export namespace MiniMeProof {
 
         const { balance, block } = await getCheckPointAtPosition(tokenAddress, holderAddress, idx, checkPointsSize, provider, blockNumber)
         if (block.isZero()) continue
+        else if (!balance.eq(targetBalance)) continue
 
-        if (balance.eq(balance)) {
-          return idx
-        }
+        return idx
       } catch (err) {
         continue
       }
@@ -124,7 +135,7 @@ export namespace MiniMeProof {
 // HELPERS
 
 export function getCheckPointAtPosition(tokenAddress: string, holderAddress: string, mapIndexSlot: number, position: number, provider: providers.Provider, blockHeight?: number | "latest") {
-  const mapSlot = EthProofs.getMapSlot(holderAddress, mapIndexSlot)
+  const mapSlot = EthProof.getMapSlot(holderAddress, mapIndexSlot)
   const vf = utils.keccak256(mapSlot)
 
   const offset = BigInt(position - 1)
@@ -142,8 +153,8 @@ export function getCheckPointAtPosition(tokenAddress: string, holderAddress: str
     })
 }
 
-export function getArraySize(tokenAddress: string, holderAddress: string, position: number, provider: providers.Provider, blockHeight?: number | "latest"): Promise<number> {
-  const holderMapSlot = EthProofs.getMapSlot(holderAddress, position)
+export function getArraySize(tokenAddress: string, holderAddress: string, mapIndexSlot: number, provider: providers.Provider, blockHeight?: number | "latest"): Promise<number> {
+  const holderMapSlot = EthProof.getMapSlot(holderAddress, mapIndexSlot)
 
   return provider.getStorageAt(tokenAddress, holderMapSlot, blockHeight)
     .then(value => {
@@ -174,7 +185,7 @@ export function parseCheckPointValue(hexValue: string) {
 // As MiniMe includes checkpoints and each one adds +1 to the key, there is a maximum
 // hardcoded tolerance of 2^16 positions for the key
 export function checkMiniMeKeys(hexKey1: string, hexKey2: string, holderAddress: string, mapIndexSlot: number) {
-  const mapSlot = EthProofs.getMapSlot(holderAddress, mapIndexSlot)
+  const mapSlot = EthProof.getMapSlot(holderAddress, mapIndexSlot)
   const vf = utils.keccak256(mapSlot)
   const holderMapIndex = BigNumber.from(vf)
 
