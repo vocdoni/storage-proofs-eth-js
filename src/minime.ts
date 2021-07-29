@@ -59,8 +59,8 @@ export namespace MiniMeProof {
     proofs.forEach((proof, idx) => {
       if (idx == 0 && !proof.value) throw new Error("Empty value")
 
-      const k = proof.key.replace("0x", "")
-      const v = proof.value.replace("0x", "")
+      const k = utils.hexZeroPad("0x" + proof.key, 32).replace("0x", "")
+      const v = utils.hexZeroPad(proof.value, 32).replace("0x", "")
 
       if (v.length != 64) throw new Error("Invalid value length")
       else if (k.length != 64) throw new Error("Invalid key length")
@@ -74,11 +74,11 @@ export namespace MiniMeProof {
     if (!proof0Balance.eq(targetBalance)) throw new Error("Proof balance does not match")
 
     // Verify that `proof0Block <= targetBlock < proof1Block`
-    if (proof0Block.lte(targetBlock)) throw new Error("Proof 0 block should be lower or equal to the target block")
+    if (!proof0Block.lte(targetBlock)) throw new Error("Proof 0 block should be lower or equal to the target block")
 
     // Check if the proof1 is a proof of non existence (so proof0 is the last checkpoint).
     // If not the last, then check the target block is
-    if (proofs[1].value) {
+    if (proofs[1].value && !BigNumber.from(proofs[1].value).eq(0)) {
       const { block: proof1Block } = parseCheckPointValue(proofs[1].value)
 
       if (!proof0Block.lt(proof1Block)) throw new Error("Proof 0 block should be behind proof 1 block")
@@ -92,10 +92,10 @@ export namespace MiniMeProof {
   }
 
   /**
-   * findTokenSlot attempts to find the map index slot for the minime balances.
+   * findMappingSlot attempts to find the map index slot for the minime balances.
    * If the position cannot be found, `null` is returned.
    */
-  export async function findTokenSlot(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
+  export async function findMappingSlot(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
     const blockNumber = await provider.getBlockNumber()
     const tokenInstance = new Contract(tokenAddress, MINIME_ABI, provider)
     const balance = await tokenInstance.balanceOf(holderAddress) as BigNumber
@@ -178,13 +178,13 @@ export function checkMiniMeKeys(hexKey1: string, hexKey2: string, holderAddress:
   const vf = utils.keccak256(mapSlot)
   const holderMapIndex = BigNumber.from(vf)
 
-  const key1Index = BigNumber.from(hexKey1)
-  const key2Index = BigNumber.from(hexKey2)
+  const key1Index = BigNumber.from(hexKey1.startsWith("0x") ? hexKey1 : "0x" + hexKey1)
+  const key2Index = BigNumber.from(hexKey2.startsWith("0x") ? hexKey2 : "0x" + hexKey2)
 
   if (!key1Index.add(1).eq(key2Index)) throw new Error("Keys are not consecutive")
 
   // We tolerate maximum 2^16 minime checkpoints
-  const offset = key1Index.sub(holderMapIndex)   // TODO: CHECK operation
+  const offset = key1Index.sub(holderMapIndex)
 
   if (offset.lt(0) || offset.gte(65536)) throw new Error("Key offset overflow")
 }
