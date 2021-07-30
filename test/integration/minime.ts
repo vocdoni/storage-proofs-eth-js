@@ -6,6 +6,7 @@ import { MINIME_ABI } from "../../src/abi/erc"
 import { provider } from "../util"
 import { addCompletionHooks } from "../mocha-hooks"
 import { BigNumber, Contract } from "ethers"
+import { StorageProof } from "../../src/types"
 
 addCompletionHooks()
 
@@ -42,6 +43,13 @@ describe('MiniMe Storage Proofs', () => {
       expect(proof.storageHash).to.match(/^0x[0-9a-fA-F]+$/)
       expect(Array.isArray(proof.storageProof)).to.eq(true)
       expect(proof.storageProof.length).to.eq(2)
+      proof.storageProof.forEach(item => {
+        item.proof.forEach(proof => {
+          expect(proof).to.match(/^0x[0-9a-fA-F]+$/)
+        })
+        expect(item.key).to.match(/^0x[0-9a-fA-F]+$/)
+        expect(item.value).to.match(/^0x[0-9a-fA-F]+$/)
+      })
 
       // verify
       await MiniMeProof.verify(holderAddress, proof.storageHash, proof.storageProof, MAP_INDEX_SLOT, targetBalance, targetBlock)
@@ -78,29 +86,40 @@ describe('MiniMe Storage Proofs', () => {
     const proofs = [proof1, proof2]
 
     for (let proof of proofs) {
-      expect(async () => {
-        try {
-          await MiniMeProof.verify(proof.address, proof.root, proof.storageProofs,
-            proof.slot, BigNumber.from(proof.balance), proof.block)
-          throw new Error("The call should have thrown an error but didn't")
-        } catch (err) {
-          throw err
-        }
-      }).to.not.throw
+      // Should not throw any error
+      const goodBalance = BigNumber.from(proof.balance)
+      await MiniMeProof.verify(proof.address, proof.root, proof.storageProof,
+        proof.slot, goodBalance, proof.block)
 
-      expect(async () => {
-        try {
-          await MiniMeProof.verify(proof.address, proof.root, proof.storageProofs,
-            proof.slot, BigNumber.from(proof.balance).sub(1000000), proof.block)
-          throw new Error("The call should have thrown an error but didn't")
-        } catch (err) {
-          throw err
-        }
-      }).to.throw
+      // Should throw
+      const badBalance = BigNumber.from(proof.balance).sub(1000000)
+      await MiniMeProof.verify(proof.address, proof.root, proof.storageProof,
+        proof.slot, badBalance, proof.block)
+        .then(() => expect.fail("The call should have thrown an error but didn't"))
+        .catch(() => { }) // ok
     }
   }).timeout(10000)
 
-  it('Should fail the verification if some value has been tampered').timeout(10000)
+  it('Should fail the verification if some value has been tampered', async () => {
+    const proofs = [proof1, proof2]
+
+    for (let proof of proofs) {
+      // Should throw
+      const badRoot = "0x" + proof.root.substr(2).split("").reverse().join("")
+      await MiniMeProof.verify(proof.address, badRoot, proof.storageProof,
+        proof.slot, BigNumber.from(proof.balance), proof.block)
+        .then(() => expect.fail("The call should have thrown an error but didn't"))
+        .catch(() => { }) // ok
+
+      // Should throw
+      const badStorageProof: StorageProof = JSON.parse(JSON.stringify(proof.storageProof))
+      badStorageProof[0].proof[0] = "0x" + badStorageProof[0].proof[0].substr(2).split("").reverse().join("")
+      await MiniMeProof.verify(proof.address, proof.root, badStorageProof,
+        proof.slot, BigNumber.from(proof.balance), proof.block)
+        .then(() => expect.fail("The call should have thrown an error but didn't"))
+        .catch(() => { }) // ok
+    }
+  }).timeout(10000)
 
   it("Should get the size of the checkpoints array", async () => {
     for (let i = 0; i < TOKEN_HOLDERS.length; i++) {
@@ -123,14 +142,19 @@ describe('MiniMe Storage Proofs', () => {
 
     // More
 
-    const { balance: balance1 } = parseCheckPointValue(proof1.storageProofs[0].value)
+    const { balance: balance1 } = parseCheckPointValue(proof1.storageProof[0].value)
     expect(balance1.toString()).to.eq(BigNumber.from(proof1.balance).toString())
 
-    const { balance: balance2 } = parseCheckPointValue(proof2.storageProofs[0].value)
+    const { balance: balance2 } = parseCheckPointValue(proof2.storageProof[0].value)
     expect(balance2.toString()).to.eq(BigNumber.from(proof2.balance).toString())
   })
 
-  it("Should check that two proof keys are valid")
+  it("Should check that two proof keys are valid", () => {
+    const proofs = [proof1, proof2]
+    for (let proof of proofs) {
+      checkMiniMeKeys(proof.storageProof[0].key, proof.storageProof[1].key, proof.address, MAP_INDEX_SLOT)
+    }
+  })
 })
 
 // HELPERS
@@ -141,7 +165,7 @@ const proof1 = {
   "balance": "0x46dcfc710c599000",
   "block": 9000000,
   "slot": 8,
-  "storageProofs": [
+  "storageProof": [
     {
       "key": "0x330ab7905c8fb5542e92680b2b2b8c88a6e77d413a85eb0890d3a41300d2c6c4",
       "value": "0x46dcfc710c5990000000000000000000000000000041ff25",
@@ -155,7 +179,7 @@ const proof1 = {
       ]
     },
     {
-      "key": "330ab7905c8fb5542e92680b2b2b8c88a6e77d413a85eb0890d3a41300d2c6c5",
+      "key": "0x330ab7905c8fb5542e92680b2b2b8c88a6e77d413a85eb0890d3a41300d2c6c5",
       "value": "0x0",
       "proof": [
         "0xf90211a0af3b3ced06aa45be075bff644dee25e6880c9387d6b83378a60ecff951307977a08edcf8eee9011293221a309e8aad24963e7bbdda53698b11369b16705102e190a041feb4172362fe1edf071db805479dc289989300bc80d9b7ca784b6cb2a1bcfda0fdb4830042633f54eda13afcb246310b63a499dcf6ef43f41d4b03476456525ea0c7da42e4276f7816e017793c7f8adf6f85ab6ad15301474266b6f5bf483bd7d7a0d427ed4496be78466d09cd33171b623c884ed8a32eebda93695e5c499ced3a54a00402122112c54359e7c3846ce7fdac6092741fe9f2dd7ca980dd5c1ade3cce95a0fc1ef74cc92efceb5792d4fc08bc7ce49629a3c9c4e73a2a8fcf3eb37850a703a0741fabe73be0df6066450b1c2eb0db6cc91f35b121c623c3b470803fcc9d8df9a0ab31eba2fc1d564f1c3334c1795491bface1322e9e3f847e3db0bfc242333bcaa0ddcdaa7ac12ac1ce8cb95b3d1e8b49639e8ca0fe83ba4b254782201df6fe0caba073d4c19ede045c9aa00561eb0d115ea32cb4ac3aceb3d02329b0506df9c3d050a0693858525c98e6a9f2719f57ebadf61391085d5448a832594aa370fe339d2b53a00269e6b3188a36402b2bcf8f19c5006d93f9a6fb5dc705fde5ce1dff9ce400b9a0a35cb3c41d87fdd2dc9dd78d859261970915e70bedfbb829a7702b4b410d6af5a0f7bf0d93ed337e036582460cd6c8376c7dec977e7ccd861d9f9f3d54c0be36aa80",
@@ -175,7 +199,7 @@ const proof2 = {
   "balance": "0x0293ca8fbc70ffaffde577",
   "block": 12743076,
   "slot": 8,
-  "storageProofs": [
+  "storageProof": [
     {
       "key": "0x25a7599f71cc507621bc7f672ca927b1800f73b2a3e7c8d22648bda4ccb055b4",
       "value": "0x293ca8fbc70ffaffde57700000000000000000000000000c271a4",

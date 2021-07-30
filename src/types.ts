@@ -35,7 +35,7 @@ export type EthereumProof = {
 export type StorageProof = StorageProofItem[]
 
 export type StorageProofItem = {
-    /** Non-0x prefixed hex string of the key that identifies the value stored on-chain */
+    /** 0x prefixed hex string of the key that identifies the value stored on-chain */
     key: string,
     /** 0x prefixed hex strings of the proof */
     proof: string[],
