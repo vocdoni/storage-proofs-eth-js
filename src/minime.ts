@@ -21,8 +21,8 @@ export namespace MiniMeProof {
     if (targetBlock.gt(block)) {
       // append the proof of non-existence of +1
       const { arraySlot: nextHexSlot } = await getCheckPointAtPosition(contractAddress, holderAddress, slot, checkPointsSize + 1, provider, targetBlock.toNumber())
-      hexKeys.push(currHexSlot)
-      hexKeys.push(nextHexSlot)
+      hexKeys.push("0x" + currHexSlot)
+      hexKeys.push("0x" + nextHexSlot)
     }
     else {
       // TODO: Turn into a binary search
@@ -39,8 +39,8 @@ export namespace MiniMeProof {
           if (balance.gt(0)) throw new Error("Proof of nil has a balance value")
           else if (block.gt(0)) throw new Error("Proof of nil has a block value")
 
-          hexKeys.push(prevHexSlot)
-          hexKeys.push(currHexSlot)
+          hexKeys.push("0x" + prevHexSlot)
+          hexKeys.push("0x" + currHexSlot)
           break
         }
       }
@@ -71,7 +71,7 @@ export namespace MiniMeProof {
     proof.forEach((proof, idx) => {
       if (idx == 0 && !proof.value) throw new Error("Empty value")
 
-      const k = utils.hexZeroPad("0x" + proof.key, 32).replace("0x", "")
+      const k = utils.hexZeroPad(proof.key, 32).replace("0x", "")
       const v = utils.hexZeroPad(proof.value, 32).replace("0x", "")
 
       if (v.length != 64) throw new Error("Invalid value length")

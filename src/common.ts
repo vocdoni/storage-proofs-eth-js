@@ -76,7 +76,7 @@ export namespace EthProof {
   }
 
   export function verifyStorageProof(storageRoot: string, storageProof: { key: string, proof: string[], value: string }): Promise<boolean> {
-    const path = utils.solidityKeccak256(["uint256"], ["0x" + storageProof.key]).slice(2)
+    const path = utils.solidityKeccak256(["uint256"], [storageProof.key]).slice(2)
 
     return verifyProof(storageRoot, path, storageProof.proof)
       .then(proofStorageValue => {
@@ -157,12 +157,16 @@ export function getEthHeaderParseOptions(blockNumber: number, networkId: string)
     case "homestead":
       networkId = "mainnet"
       if (blockNumber < 12965000) return new EthCommon({ chain: networkId })
+      break
     case "ropsten":
       if (blockNumber < 10499401) return new EthCommon({ chain: networkId })
+      break
     case "goerli":
       if (blockNumber < 5062605) return new EthCommon({ chain: networkId })
+      break
     case "rinkeby":
       if (blockNumber < 8897988) return new EthCommon({ chain: networkId })
+      break
   }
 
   return new EthCommon({ chain: networkId, hardfork: "london" })

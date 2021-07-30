@@ -30,6 +30,13 @@ describe('ERC20 Storage Proofs', () => {
         result.storageProofsRLP.forEach(proof => {
             expect(proof).to.match(/^0x[0-9a-fA-F]+$/)
         })
+        result.proof.storageProof.forEach(item => {
+            item.proof.forEach(proof => {
+                expect(proof).to.match(/^0x[0-9a-fA-F]+$/)
+            })
+            expect(item.key).to.match(/^0x[0-9a-fA-F]+$/)
+            expect(item.value).to.match(/^0x[0-9a-fA-F]+$/)
+        })
 
         // verify
         const { block, proof } = result
