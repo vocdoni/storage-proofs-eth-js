@@ -1,5 +1,5 @@
 import { providers, utils } from "ethers"
-import { BlockData, EthereumProof } from "./types"
+import { BlockData, EthereumProof, StorageProofItem } from "./types"
 import blockHeaderFromRpc from "@ethereumjs/block/dist/header-from-rpc"
 import EthCommon from "@ethereumjs/common"
 import { BaseTrie } from "merkle-patricia-tree"
@@ -75,7 +75,7 @@ export namespace EthProof {
       })
   }
 
-  export function verifyStorageProof(storageRoot: string, storageProof: { key: string, proof: string[], value: string }): Promise<boolean> {
+  export function verifyStorageProof(storageRoot: string, storageProof: StorageProofItem): Promise<boolean> {
     const path = utils.solidityKeccak256(["uint256"], [storageProof.key]).slice(2)
 
     return verifyProof(storageRoot, path, storageProof.proof)
