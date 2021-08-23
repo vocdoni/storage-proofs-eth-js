@@ -122,21 +122,38 @@ describe('Token Storage Proofs', () => {
         }
 
         // 2
-        // TODO: The library should be throwing an error, but doesn't
 
-        // {
-        //     const { proof, block } = await storageProover.getProof(tokenAddress, storageKeys, "latest", true)
-        //     expect(proof.storageProof[0].value).to.eq("0x0")
+        {
+            const { proof, block } = await storageProover.getProof(tokenAddress, storageKeys, "latest", true)
+            expect(proof.storageProof[0].value).to.eq("0x0")
 
-        //     // Corrupt the proof
-        //     proof.storageProof[0].proof = []
+            // Corrupt the proof
+            proof.storageProof[0].proof = []
 
-        //     try {
-        //         await storageProover.verify(block.stateRoot, tokenAddress, proof)
-        //         throw new Error("Should have failed but didn't")
-        //     } catch (err) {
-        //         expect(err.message).to.not.eq("Should have failed but didn't")
-        //     }
-        // }
+            try {
+                await storageProover.verify(block.stateRoot, tokenAddress, proof)
+                throw new Error("Should have failed but didn't")
+            } catch (err) {
+                expect(err.message).to.not.eq("Should have failed but didn't")
+            }
+        }
+
+        // 3
+
+        {
+            const { proof, block } = await storageProover.getProof(tokenAddress, storageKeys, "latest", true)
+            expect(proof.storageProof[0].value).to.eq("0x0")
+
+            // Corrupt the proof
+            const tmp = proof.storageProof[0].proof[0]
+            proof.storageProof[0].proof[0] = "0x" + tmp.substr(2).split("").reverse().join("")
+
+            try {
+                await storageProover.verify(block.stateRoot, tokenAddress, proof)
+                throw new Error("Should have failed but didn't")
+            } catch (err) {
+                expect(err.message).to.not.eq("Should have failed but didn't")
+            }
+        }
     }).timeout(10000)
 })
