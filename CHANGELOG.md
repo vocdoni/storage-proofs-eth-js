@@ -1,6 +1,11 @@
 # Changelog
 
-## v0.5.0
+## v0.4.0
+
+### Proof of non existence
+- `verifyProof()` now checks for existence when a value is defined, and checks for non-existence when the path is empty
+
+### Supporting MiniMe tokens
 - Adding `MiniMeProof`
 - [Breaking] `StorageProof` (type) is now `EthereumProof`
 - [Breaking] Restructuring `Erc20Proover` into `ERC20Proof`, along with `MiniMeProof`, `EthProof` and `EthProvider`
@@ -16,9 +21,6 @@
 - Proof generation and verification are now independent
   - Generating proofs no longer accepts `verify` as a parameter
 - `ERC20Proof.findMapSlot` is now lighter on requests
-
-## v0.4.0
-- `verifyProof()` now checks for existence when a value is defined, and checks for non-existence when the path is empty
 
 ## v0.3.2
 
