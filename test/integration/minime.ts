@@ -54,7 +54,7 @@ describe('MiniMe Storage Proofs', () => {
       // verify
       await MiniMeProof.verify(holderAddress, proof.storageHash, proof.storageProof, MAP_INDEX_SLOT, targetBalance, targetBlock)
     }
-  }).timeout(10000)
+  }).timeout(20000)
 
   it('Should generate valid (full) proofs', async () => {
     const targetBlock = await provider.getBlockNumber()
@@ -80,7 +80,7 @@ describe('MiniMe Storage Proofs', () => {
       // verify
       await MiniMeProof.verify(holderAddress, result.proof.storageHash, result.proof.storageProof, MAP_INDEX_SLOT, targetBalance, targetBlock)
     }
-  }).timeout(10000)
+  }).timeout(20000)
 
   it('Should validate a proof', async () => {
     const proofs = [proof1, proof2]
@@ -98,7 +98,7 @@ describe('MiniMe Storage Proofs', () => {
         .then(() => expect.fail("The call should have thrown an error but didn't"))
         .catch(() => { }) // ok
     }
-  }).timeout(10000)
+  }).timeout(20000)
 
   it('Should fail the verification if some value has been tampered', async () => {
     const proofs = [proof1, proof2]
@@ -126,7 +126,7 @@ describe('MiniMe Storage Proofs', () => {
       const size = await getArraySize(TOKEN_ADDRESS, TOKEN_HOLDERS[i], MAP_INDEX_SLOT, provider)
       expect(size).to.be.gt(0)
     }
-  })
+  }).timeout(8000)
 
   it("Should parse the checkpoint", () => {
     const items = [
@@ -147,7 +147,7 @@ describe('MiniMe Storage Proofs', () => {
 
     const { balance: balance2 } = parseCheckPointValue(proof2.storageProof[0].value)
     expect(balance2.toString()).to.eq(BigNumber.from(proof2.balance).toString())
-  })
+  }).timeout(5000)
 
   it("Should check that two proof keys are valid", () => {
     const proofs = [proof1, proof2]

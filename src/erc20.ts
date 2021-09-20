@@ -56,6 +56,7 @@ export namespace ERC20Proof {
 
     /**
      * Attempts to find the index at which the holder balances are stored within the token contract.
+     * This assumes that `tokenAddress` holds a positive balance of tokens, otherwise an error is returned.
      * If the position cannot be found among the 50 first ones, `null` is returned.
      */
     export async function findMapSlot(tokenAddress: string, holderAddress: string, provider: providers.JsonRpcProvider) {
@@ -68,7 +69,7 @@ export namespace ERC20Proof {
             try {
                 const holderBalanceSlot = EthProof.getMapSlot(holderAddress, pos)
 
-                const value = await provider.getStorageAt(tokenAddress, "0x" + holderBalanceSlot, blockNumber)
+                const value = await provider.getStorageAt(tokenAddress, holderBalanceSlot, blockNumber)
 
                 const onChainBalance = BigNumber.from(value)
                 if (!onChainBalance.eq(balance)) continue

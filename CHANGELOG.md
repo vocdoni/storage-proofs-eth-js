@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1
+
+- Fix: Preventing an invalid `holderBalanceSlot` to be used
+
 ## v0.4.0
 
 ### Proof of non existence
